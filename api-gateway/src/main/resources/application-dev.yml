@@ -1,0 +1,9 @@
+eureka:
+  client:
+    # Aggressive registry fetch (Default is 30s)
+    registry-fetch-interval-seconds: 2
+  instance:
+    # Aggressive lease renewal (Default is 30s)
+    lease-renewal-interval-in-seconds: 5
+    # Lease expiration (Default is 90s)
+    lease-expiration-duration-in-seconds: 10

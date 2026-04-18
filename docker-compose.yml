@@ -1,0 +1,151 @@
+version: '3.8'
+
+services:
+  # ==================== DATABASES ====================
+  auth-db:
+    image: mariadb:10.11
+    container_name: melodyshop-auth-db
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-root_secret_2024}
+      MARIADB_DATABASE: ${AUTH_DB_NAME:-auth_db}
+      MARIADB_USER: ${DB_USERNAME:-melodyshop}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-melodyshop_secret_2024}
+    ports:
+      - "3307:3306"
+    volumes:
+      - auth-db-data:/var/lib/mysql
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  user-db:
+    image: mariadb:10.11
+    container_name: melodyshop-user-db
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-root_secret_2024}
+      MARIADB_DATABASE: ${USER_DB_NAME:-user_db}
+      MARIADB_USER: ${DB_USERNAME:-melodyshop}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-melodyshop_secret_2024}
+    ports:
+      - "3310:3306"
+    volumes:
+      - user-db-data:/var/lib/mysql
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== INFRASTRUCTURE ====================
+  eureka-server:
+    build:
+      context: .
+      dockerfile: ./eureka-server/Dockerfile
+    container_name: melodyshop-eureka
+    ports:
+      - "8761:8761"
+    networks:
+      - backend-network
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8761/actuator/health"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ./api-gateway/Dockerfile
+    container_name: melodyshop-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      EUREKA_HOST: eureka-server
+      JWT_SECRET: ${JWT_SECRET:-bWVsb2R5c2hvcC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tMjAyNC12ZXJ5LWxvbmctc2VjcmV0}
+      SPRING_PROFILES_ACTIVE: dev
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - backend-network
+
+  # ==================== BUSINESS SERVICES ====================
+  auth-service:
+    build:
+      context: .
+      dockerfile: ./auth-service/Dockerfile
+    container_name: melodyshop-auth
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: auth-db
+      DB_USERNAME: ${DB_USERNAME:-melodyshop}
+      DB_PASSWORD: ${DB_PASSWORD:-melodyshop_secret_2024}
+      AUTH_DB_NAME: ${AUTH_DB_NAME:-auth_db}
+      EUREKA_HOST: eureka-server
+      JWT_SECRET: ${JWT_SECRET:-bWVsb2R5c2hvcC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tMjAyNC12ZXJ5LWxvbmctc2VjcmV0}
+      JWT_ACCESS_EXPIRATION_MS: ${JWT_ACCESS_EXPIRATION_MS:-900000}
+      JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS:-604800000}
+      SPRING_PROFILES_ACTIVE: dev
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - backend-network
+
+  user-service:
+    build:
+      context: .
+      dockerfile: ./user-service/Dockerfile
+    container_name: melodyshop-user
+    ports:
+      - "8084:8084"
+    environment:
+      DB_HOST: user-db
+      DB_USERNAME: ${DB_USERNAME:-melodyshop}
+      DB_PASSWORD: ${DB_PASSWORD:-melodyshop_secret_2024}
+      USER_DB_NAME: ${USER_DB_NAME:-user_db}
+      EUREKA_HOST: eureka-server
+      SPRING_PROFILES_ACTIVE: dev
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    depends_on:
+      user-db:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - backend-network
+
+# ==================== NETWORKS & VOLUMES ====================
+networks:
+  backend-network:
+    driver: bridge
+
+volumes:
+  auth-db-data:
+  user-db-data:

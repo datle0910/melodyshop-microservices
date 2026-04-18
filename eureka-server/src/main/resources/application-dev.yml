@@ -1,0 +1,8 @@
+eureka:
+  server:
+    # Aggressive response cache update for local dev (Default is 30s)
+    response-cache-update-interval-ms: 2000
+    # Allow faster eviction of expired instances
+    eviction-interval-timer-in-ms: 2000
+    # Disable self-preservation for immediate eviction (Only for dev)
+    enable-self-preservation: false

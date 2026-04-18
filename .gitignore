@@ -1,0 +1,32 @@
+# Java/Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# IDEs
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/
+bin/
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Sensitive Data (IMPORTANT)
+.env
+auth-service-db-data/
+user-service-db-data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+logs/
+temp/

@@ -18,7 +18,11 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.melodyshop.common.exception.GlobalExceptionHandler;
+import org.springframework.context.annotation.Import;
+
 @WebMvcTest(MediaController.class)
+@Import(GlobalExceptionHandler.class)
 @DisplayName("MediaController Integration Tests (MockMvc)")
 class MediaControllerTest {
 

@@ -21,7 +21,11 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.melodyshop.common.exception.GlobalExceptionHandler;
+import org.springframework.context.annotation.Import;
+
 @WebMvcTest(NotificationController.class)
+@Import(GlobalExceptionHandler.class)
 @DisplayName("NotificationController Integration Tests (MockMvc)")
 class NotificationControllerTest {
 

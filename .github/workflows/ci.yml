@@ -32,18 +32,16 @@ jobs:
 
       - name: Build all modules (skip tests first for speed)
         run: mvn clean package -DskipTests --no-transfer-progress
-        working-directory: melodyshop-microservices
 
       - name: Run unit tests
         run: mvn test --no-transfer-progress
-        working-directory: melodyshop-microservices
 
       - name: Upload test reports
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-reports
-          path: melodyshop-microservices/**/target/surefire-reports/*.xml
+          path: "**/target/surefire-reports/*.xml"
           retention-days: 7
 
   # ─────────────────────────────────────────────────────────────
@@ -95,8 +93,8 @@ jobs:
       - name: Build and push ${{ matrix.service.name }}
         uses: docker/build-push-action@v5
         with:
-          context: ./melodyshop-microservices
-          file: ./melodyshop-microservices/${{ matrix.service.name }}/Dockerfile
+          context: .
+          file: ./${{ matrix.service.name }}/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

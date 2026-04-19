@@ -11,11 +11,16 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.melodyshop.user.client.MediaServiceClient;
+import org.springframework.web.multipart.MultipartFile;
+import java.util.Map;
+
 @Service
 @RequiredArgsConstructor
 public class UserProfileService {
 
     private final UserProfileRepository profileRepository;
+    private final MediaServiceClient mediaServiceClient;
 
     public UserProfileDTO getProfile(String userId, String fullName) {
         UserProfile profile = profileRepository.findById(userId)
@@ -29,7 +34,7 @@ public class UserProfileService {
     }
 
     @Transactional
-    public UserProfileDTO createOrUpdateProfile(String userId, UpdateProfileRequest request) {
+    public UserProfileDTO createOrUpdateProfile(String userId, UpdateProfileRequest request, MultipartFile avatar) {
         UserProfile profile = profileRepository.findById(userId)
                 .orElseGet(() -> {
                     UserProfile p = new UserProfile();
@@ -39,7 +44,15 @@ public class UserProfileService {
 
         profile.setFullName(request.getFullName());
         profile.setPhone(request.getPhone());
-        profile.setAvatarUrl(request.getAvatarUrl());
+        
+        if (avatar != null && !avatar.isEmpty()) {
+            Map<String, Object> uploadResult = mediaServiceClient.uploadFile("avatar", avatar);
+            if (uploadResult != null && uploadResult.containsKey("url")) {
+                profile.setAvatarUrl((String) uploadResult.get("url"));
+            }
+        } else if (request.getAvatarUrl() != null) {
+            profile.setAvatarUrl(request.getAvatarUrl());
+        }
 
         profile = profileRepository.save(profile);
         return toDTO(profile);

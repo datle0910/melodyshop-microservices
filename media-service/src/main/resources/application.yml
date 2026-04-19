@@ -1,0 +1,40 @@
+server:
+  port: 8087
+
+spring:
+  application:
+    name: media-service
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB       # Max per file
+      max-request-size: 30MB    # Max total request
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:your-cloud-name}
+  api-key: ${CLOUDINARY_API_KEY:your-api-key}
+  api-secret: ${CLOUDINARY_API_SECRET:your-api-secret}
+
+media:
+  allowed-types: image/jpeg,image/png,image/webp,image/gif
+  folders: "{'product':'melodyshop/products', 'avatar':'melodyshop/avatars', 'review':'melodyshop/reviews'}"
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8761}/eureka/
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.melodyshop.media: INFO

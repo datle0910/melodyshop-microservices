@@ -1,0 +1,80 @@
+# =====================================================================
+# ELK Stack for MelodyShop Centralized Logging
+# =====================================================================
+# Usage:
+#   Normal dev (no ELK):
+#     docker-compose up -d
+#
+#   With ELK for debugging:
+#     docker-compose -f docker-compose.yml -f docker-compose.elk.yml up -d
+#
+# Access Kibana: http://localhost:5601
+# =====================================================================
+
+version: '3.8'
+
+services:
+  elasticsearch:
+    image: elasticsearch:8.13.0
+    container_name: melodyshop-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false        # Disable auth for dev simplicity
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m     # Limit RAM usage
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cat/health | grep -q 'green\\|yellow'"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  logstash:
+    image: logstash:8.13.0
+    container_name: melodyshop-logstash
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+    ports:
+      - "5044:5044"     # Beats input
+      - "5000:5000/tcp" # TCP input (Spring Boot logs)
+      - "5000:5000/udp" # UDP input
+      - "9600:9600"     # API
+    environment:
+      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+    networks:
+      - backend-network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  kibana:
+    image: kibana:8.13.0
+    container_name: melodyshop-kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    networks:
+      - backend-network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+volumes:
+  elasticsearch-data:

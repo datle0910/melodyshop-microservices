@@ -107,7 +107,249 @@ Khi `User Service` nhận request Profile nhưng chưa có record trong DB, nó 
 
 ---
 
-## 🤖 4. Gợi ý dành cho AI Assistant
+## 📡 4. API Reference (Postman Test Guide)
+
+> **Base URL (qua Gateway):** `http://localhost:8080`
+>
+> Tất cả request (trừ login/register) phải có header `Authorization: Bearer <JWT_TOKEN>`.
+
+---
+
+### 🔐 4.1. Auth Service (`:8081`)
+
+#### Đăng ký
+```
+POST http://localhost:8080/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "user@melodyshop.vn",
+  "password": "SecurePass123!",
+  "fullName": "Nguyen Van A",
+  "phone": "0901234567"
+}
+```
+**Response (201):**
+```json
+{
+  "status": 201,
+  "message": "Created",
+  "data": {
+    "accessToken": "eyJhbGciOi...",
+    "refreshToken": "dGhpcyBpcyBh...",
+    "tokenType": "Bearer"
+  }
+}
+```
+
+#### Đăng nhập
+```
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@melodyshop.vn",
+  "password": "SecurePass123!"
+}
+```
+**Response (200):**
+```json
+{
+  "status": 200,
+  "message": "Đăng nhập thành công",
+  "data": {
+    "accessToken": "eyJhbGciOi...",
+    "refreshToken": "dGhpcyBpcyBh...",
+    "tokenType": "Bearer"
+  }
+}
+```
+
+#### Refresh Token
+```
+POST http://localhost:8080/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "dGhpcyBpcyBh..."
+}
+```
+
+#### Xem thông tin User hiện tại
+```
+GET http://localhost:8080/api/auth/me
+Authorization: Bearer <accessToken>
+```
+
+#### Đăng xuất
+```
+POST http://localhost:8080/api/auth/logout
+Authorization: Bearer <accessToken>
+```
+
+#### Validate Token (cho service khác gọi kiểm tra)
+```
+GET http://localhost:8080/api/auth/validate
+Authorization: Bearer <accessToken>
+```
+**Response (200):** `{"data": "valid"}`
+
+---
+
+### 📧 4.2. Notification Service (`:8085`) — Internal API
+
+> [!NOTE]
+> Notification Service là **internal service** — chỉ gọi từ service khác qua Feign, không cần JWT.
+> Để test trên Postman, gọi trực tiếp qua port nội bộ `8085`.
+
+#### Gửi Email theo Template
+```
+POST http://localhost:8085/api/notifications/email
+Content-Type: application/json
+
+{
+  "to": "customer@gmail.com",
+  "subject": "Test Email MelodyShop",
+  "templateName": "welcome",
+  "variables": {
+    "fullName": "Nguyen Van A"
+  }
+}
+```
+**Response (200):**
+```json
+{
+  "status": "sent",
+  "to": "customer@gmail.com"
+}
+```
+
+#### Gửi OTP (tự sinh mã 6 chữ số)
+```
+POST http://localhost:8085/api/notifications/otp
+Content-Type: application/json
+
+{
+  "to": "customer@gmail.com",
+  "recipientName": "Nguyen Van A"
+}
+```
+**Response (200):**
+```json
+{
+  "status": "sent",
+  "to": "customer@gmail.com",
+  "otp": "482931"
+}
+```
+
+#### Gửi Email Chào mừng (sau đăng ký)
+```
+POST http://localhost:8085/api/notifications/welcome?email=customer@gmail.com&fullName=Nguyen Van A
+```
+**Response (200):** `{"status": "sent", "to": "customer@gmail.com"}`
+
+#### Gửi Email Xác nhận Đơn hàng
+```
+POST http://localhost:8085/api/notifications/order-confirmed?email=customer@gmail.com&fullName=Nguyen Van A&orderCode=ORD-2024-001&totalAmount=5,000,000 ₫
+```
+**Response (200):** `{"status": "sent", "orderCode": "ORD-2024-001"}`
+
+#### Smoke Test
+```
+GET http://localhost:8085/api/notifications/ping
+```
+**Response (200):** `{"service": "notification-service", "status": "UP"}`
+
+**Template names có sẵn:** `welcome`, `otp`, `order-confirmed`
+
+---
+
+### 🖼️ 4.3. Media Service (`:8087`) — Upload ảnh Cloudinary
+
+> [!NOTE]
+> Upload qua Gateway cần JWT. Để test nhanh, gọi trực tiếp port `8087`.
+
+#### Upload ảnh sản phẩm
+```
+POST http://localhost:8087/api/media/upload?type=product
+Content-Type: multipart/form-data
+
+Body (form-data):
+  key: file    → [Chọn file ảnh .jpg/.png/.webp]
+```
+**Response (200):**
+```json
+{
+  "url": "https://res.cloudinary.com/your-cloud/image/upload/v123/melodyshop/products/guitar-abc.jpg",
+  "publicId": "melodyshop/products/guitar-abc",
+  "format": "jpg",
+  "bytes": 54321,
+  "width": 1280,
+  "height": 720,
+  "folder": "melodyshop/products"
+}
+```
+
+#### Upload avatar
+```
+POST http://localhost:8087/api/media/upload?type=avatar
+Content-Type: multipart/form-data
+
+Body (form-data):
+  key: file    → [Chọn file ảnh]
+```
+
+#### Upload ảnh đánh giá sản phẩm
+```
+POST http://localhost:8087/api/media/upload?type=review
+```
+
+#### Xóa ảnh (chỉ Admin)
+```
+DELETE http://localhost:8087/api/media/delete?publicId=melodyshop/products/guitar-abc
+X-User-Role: ROLE_ADMIN
+```
+**Response (200):**
+```json
+{
+  "status": "deleted",
+  "publicId": "melodyshop/products/guitar-abc"
+}
+```
+
+**Response (403) — nếu không phải Admin:**
+```json
+{
+  "error": "Only admins can delete media assets"
+}
+```
+
+#### Smoke Test
+```
+GET http://localhost:8087/api/media/ping
+```
+**Response (200):** `{"service": "media-service", "status": "UP"}`
+
+**Loại file cho phép:** `image/jpeg`, `image/png`, `image/webp`, `image/gif`
+**Giới hạn:** 10MB/file, 30MB/request
+
+---
+
+### 🗂 4.4. Bảng tham chiếu Port
+
+| Service | Port | Base Path | Ghi chú |
+|:---|:---|:---|:---|
+| API Gateway | `8080` | `/` | Entry point duy nhất cho Frontend |
+| Eureka Dashboard | `8761` | `/` | Xem danh sách service đang chạy |
+| Auth Service | `8081` | `/api/auth` | Login, Register, Token |
+| User Service | `8084` | `/api/users` | Profile, Addresses |
+| Notification Service | `8085` | `/api/notifications` | Email, OTP (internal) |
+| Media Service | `8087` | `/api/media` | Upload/Delete ảnh Cloudinary |
+
+---
+
+## 🤖 5. Gợi ý dành cho AI Assistant
 
 AI nên đọc file này trước tiên để hiểu cấu trúc quan hệ. Lưu ý:
 - Phân biệt giữa **ID thật** (Identity) và **ID tham chiếu** (Reference IDs) giữa các DB.
@@ -115,7 +357,7 @@ AI nên đọc file này trước tiên để hiểu cấu trúc quan hệ. Lưu
 
 ---
 
-## 🚀 5. Lộ trình Phát triển (Next Steps)
+## 🚀 6. Lộ trình Phát triển (Next Steps)
 1. Phát triển **Product Service** (Catalog).
 2. Phát triển **Order & Cart Service**.
 3. Tích hợp **Inventory & Serial Tracking**.

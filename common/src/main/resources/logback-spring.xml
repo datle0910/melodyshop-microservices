@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Shared logback configuration for all MelodyShop microservices.
+  Place in: src/main/resources/logback-spring.xml in each service.
+
+  Outputs:
+    - Console (always)
+    - Logstash TCP (only when LOGSTASH_HOST env var is set — ELK mode)
+-->
+<configuration>
+
+    <!-- ── Console Appender (always active) ───────────────────────── -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %highlight(%-5level) %cyan(%logger{36}) - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ── Logstash Appender (active only when LOGSTASH_HOST is set) ─ -->
+    <springProperty name="logstashHost" source="LOGSTASH_HOST" defaultValue=""/>
+    <springProperty name="serviceName"  source="spring.application.name" defaultValue="unknown-service"/>
+
+    <!-- Active only when 'elk' profile is enabled -->
+    <springProfile name="elk">
+        <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+            <destination>${logstashHost}:5000</destination>
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <customFields>{"service_name":"${serviceName}"}</customFields>
+                <includeContext>false</includeContext>
+                <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                    <maxDepthPerCause>10</maxDepthPerCause>
+                    <rootCauseFirst>true</rootCauseFirst>
+                </throwableConverter>
+            </encoder>
+            <keepAliveDuration>5 minutes</keepAliveDuration>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="LOGSTASH"/>
+        </root>
+    </springProfile>
+
+    <!-- Active when 'elk' profile is NOT enabled -->
+    <springProfile name="!elk">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <!-- ── Package-level overrides ────────────────────────────────── -->
+    <logger name="org.springframework.cloud.netflix.eureka" level="WARN"/>
+    <logger name="com.netflix.discovery"                    level="WARN"/>
+    <logger name="org.hibernate.SQL"                        level="WARN"/>
+    <logger name="org.springframework.web.servlet"          level="WARN"/>
+
+</configuration>

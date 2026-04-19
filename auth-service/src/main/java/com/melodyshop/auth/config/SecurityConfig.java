@@ -27,7 +27,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/refresh").permitAll()
                 .requestMatchers("/api/auth/v3/api-docs/**", "/api/auth/swagger-ui/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
-                .anyRequest().authenticated()
+                .anyRequest().permitAll() // JWT validation is handled by API Gateway
             );
         return http.build();
     }

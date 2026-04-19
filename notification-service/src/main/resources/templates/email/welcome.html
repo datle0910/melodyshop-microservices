@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chào mừng đến MelodyShop</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
+        .wrapper { max-width: 600px; margin: 30px auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #6B46C1, #4F46E5); padding: 40px 30px; text-align: center; }
+        .header h1 { color: #fff; margin: 0; font-size: 28px; }
+        .header p  { color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 15px; }
+        .content  { padding: 36px 30px; }
+        .content h2 { color: #1a1a2e; font-size: 22px; margin-top: 0; }
+        .content p  { color: #555; line-height: 1.7; font-size: 15px; }
+        .btn { display: inline-block; margin: 24px 0 0; padding: 14px 32px; background: linear-gradient(135deg, #6B46C1, #4F46E5); color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; }
+        .features { display: flex; gap: 16px; margin: 28px 0; flex-wrap: wrap; }
+        .feature  { flex: 1; min-width: 140px; background: #f8f7ff; border-radius: 8px; padding: 16px; text-align: center; }
+        .feature .icon { font-size: 28px; margin-bottom: 8px; }
+        .feature p { color: #444; font-size: 13px; margin: 0; }
+        .footer { background: #f8f7ff; padding: 20px 30px; text-align: center; color: #888; font-size: 13px; }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <!-- Header -->
+    <div class="header">
+        <h1>🎵 MelodyShop</h1>
+        <p>Website bán nhạc cụ trực tuyến</p>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+        <h2>Xin chào, <span th:text="${fullName}">Khách hàng</span>! 👋</h2>
+        <p>Chào mừng bạn đã gia nhập cộng đồng âm nhạc của <strong>MelodyShop</strong>! Tài khoản của bạn đã được tạo thành công.</p>
+
+        <div class="features">
+            <div class="feature">
+                <div class="icon">🎸</div>
+                <p>Hàng ngàn nhạc cụ chất lượng cao</p>
+            </div>
+            <div class="feature">
+                <div class="icon">🚚</div>
+                <p>Giao hàng toàn quốc nhanh chóng</p>
+            </div>
+            <div class="feature">
+                <div class="icon">🔒</div>
+                <p>Thanh toán an toàn & bảo mật</p>
+            </div>
+        </div>
+
+        <p>Hãy bắt đầu hành trình âm nhạc của bạn ngay bây giờ!</p>
+        <a href="http://localhost:3000" class="btn">Khám phá ngay →</a>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>© 2024 MelodyShop. Mọi thắc mắc vui lòng liên hệ <strong>support@melodyshop.vn</strong></p>
+        <p>Bạn nhận được email này vì đã đăng ký tài khoản tại MelodyShop.</p>
+    </div>
+</div>
+</body>
+</html>

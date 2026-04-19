@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xác nhận đơn hàng</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
+        .wrapper { max-width: 600px; margin: 30px auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #2D6A4F, #1B4332); padding: 36px 30px; text-align: center; }
+        .header h1 { color: #fff; margin: 0; font-size: 26px; }
+        .header .checkmark { font-size: 52px; display: block; margin-bottom: 12px; }
+        .content { padding: 36px 30px; }
+        .content p { color: #555; line-height: 1.7; font-size: 15px; }
+        .order-card { background: #f0faf5; border: 1px solid #b7e4c7; border-radius: 10px; padding: 20px 24px; margin: 24px 0; }
+        .order-card table { width: 100%; border-collapse: collapse; }
+        .order-card td { padding: 8px 0; font-size: 15px; }
+        .order-card td:first-child { color: #555; }
+        .order-card td:last-child { font-weight: 700; color: #1B4332; text-align: right; }
+        .total-row td { border-top: 1px solid #b7e4c7; padding-top: 14px; font-size: 17px; }
+        .steps { margin: 28px 0; }
+        .step { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 14px; }
+        .step-num { flex-shrink: 0; width: 28px; height: 28px; background: #2D6A4F; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+        .step-text { color: #444; font-size: 14px; line-height: 1.5; }
+        .btn { display: inline-block; margin: 8px 0 0; padding: 13px 30px; background: #2D6A4F; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; }
+        .footer { background: #f0faf5; padding: 20px 30px; text-align: center; color: #888; font-size: 13px; border-top: 1px solid #d8f3dc; }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <div class="header">
+        <span class="checkmark">✅</span>
+        <h1>Đặt hàng thành công!</h1>
+    </div>
+    <div class="content">
+        <p>Xin chào <strong th:text="${fullName}">Khách hàng</strong>,</p>
+        <p>Cảm ơn bạn đã tin tưởng mua sắm tại <strong>MelodyShop</strong>! Đơn hàng của bạn đã được xác nhận và đang được xử lý.</p>
+
+        <div class="order-card">
+            <table>
+                <tr>
+                    <td>🧾 Mã đơn hàng</td>
+                    <td th:text="${orderCode}">#ORD-000</td>
+                </tr>
+                <tr>
+                    <td>📅 Ngày đặt</td>
+                    <td th:text="${#dates.format(#dates.createNow(), 'dd/MM/yyyy HH:mm')}">01/01/2024</td>
+                </tr>
+                <tr class="total-row">
+                    <td>💰 Tổng thanh toán</td>
+                    <td th:text="${totalAmount}">0 ₫</td>
+                </tr>
+            </table>
+        </div>
+
+        <p><strong>Hành trình đơn hàng của bạn:</strong></p>
+        <div class="steps">
+            <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-text"><strong>Đã xác nhận</strong> — Chúng tôi đã nhận đơn hàng của bạn.</div>
+            </div>
+            <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-text"><strong>Đang chuẩn bị</strong> — Nhạc cụ đang được kiểm tra và đóng gói.</div>
+            </div>
+            <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-text"><strong>Đang giao hàng</strong> — Đơn hàng sẽ đến tay bạn trong 2-5 ngày làm việc.</div>
+            </div>
+        </div>
+
+        <a href="http://localhost:3000/orders" class="btn">Theo dõi đơn hàng →</a>
+    </div>
+    <div class="footer">
+        <p>© 2024 MelodyShop • Hotline: 1800-xxxx • <strong>support@melodyshop.vn</strong></p>
+    </div>
+</div>
+</body>
+</html>

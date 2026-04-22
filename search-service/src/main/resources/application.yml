@@ -1,0 +1,34 @@
+server:
+  port: 8088
+
+spring:
+  application:
+    name: search-service
+  elasticsearch:
+    uris: ${ELASTICSEARCH_URI:http://localhost:9200}
+  data:
+    elasticsearch:
+      repositories:
+        enabled: true
+  # Tắt auto-config DataSource vì search-service không dùng SQL DB
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8761}/eureka/
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always

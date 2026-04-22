@@ -26,6 +26,9 @@
         <module>user-service</module>
         <module>notification-service</module>
         <module>media-service</module>
+        <module>product-service</module>
+        <module>inventory-service</module>
+        <module>search-service</module>
     </modules>
 
     <properties>

@@ -23,6 +23,24 @@ spring:
           predicates:
             - Path=/api/users/**
 
+        # --- Product Service ---
+        - id: product-service
+          uri: lb://product-service
+          predicates:
+            - Path=/api/products/**,/api/categories/**,/api/brands/**
+
+        # --- Inventory Service ---
+        - id: inventory-service
+          uri: lb://inventory-service
+          predicates:
+            - Path=/api/inventory/**,/api/admin/inventory/**
+
+        # --- Search Service ---
+        - id: search-service
+          uri: lb://search-service
+          predicates:
+            - Path=/api/search/**
+
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
 

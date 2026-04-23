@@ -42,6 +42,26 @@ services:
       timeout: 5s
       retries: 5
 
+  payment-db:
+    image: mariadb:10.11
+    container_name: melodyshop-payment-db
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-root_secret_2024}
+      MARIADB_DATABASE: ${PAYMENT_DB_NAME:-payment_db}
+      MARIADB_USER: ${DB_USERNAME:-melodyshop}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-melodyshop_secret_2024}
+    ports:
+      - "3311:3306"
+    volumes:
+      - payment-db-data:/var/lib/mysql
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ==================== INFRASTRUCTURE ====================
   eureka-server:
     build:
@@ -141,6 +161,55 @@ services:
     networks:
       - backend-network
 
+  payment-service:
+    build:
+      context: .
+      dockerfile: ./payment-service/Dockerfile
+    container_name: melodyshop-payment
+    ports:
+      - "8087:8087"
+    environment:
+      DB_HOST: payment-db
+      DB_USERNAME: ${DB_USERNAME:-melodyshop}
+      DB_PASSWORD: ${DB_PASSWORD:-melodyshop_secret_2024}
+      PAYMENT_DB_NAME: ${PAYMENT_DB_NAME:-payment_db}
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-payment_webhook_secret}
+      PAYMENT_GATEWAY_REDIRECT_BASE_URL: ${PAYMENT_GATEWAY_REDIRECT_BASE_URL:-http://fake-gateway/pay}
+      EUREKA_HOST: eureka-server
+      SPRING_PROFILES_ACTIVE: dev
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    depends_on:
+      payment-db:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - backend-network
+
+  customer-engagement-service:
+    build:
+      context: .
+      dockerfile: ./customer-engagement-service/Dockerfile
+    container_name: melodyshop-customer-engagement
+    ports:
+      - "8088:8088"
+    environment:
+      EUREKA_HOST: eureka-server
+      ENGAGEMENT_REVIEW_ASSUME_PURCHASED: ${ENGAGEMENT_REVIEW_ASSUME_PURCHASED:-true}
+      SPRING_PROFILES_ACTIVE: dev
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - backend-network
+
 # ==================== NETWORKS & VOLUMES ====================
 networks:
   backend-network:
@@ -149,3 +218,4 @@ networks:
 volumes:
   auth-db-data:
   user-db-data:
+  payment-db-data:

@@ -324,7 +324,51 @@ services:
     networks:
       - backend-network
 
+  order-db:
+    image: mariadb:10.11
+    container_name: melodyshop-order-db
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-root_secret_2024}
+      MARIADB_DATABASE: ${ORDER_DB_NAME:-order_db}
+      MARIADB_USER: ${DB_USERNAME:-melodyshop}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-melodyshop_secret_2024}
+    ports:
+      - "3311:3306"
+    volumes:
+      - order-db-data:/var/lib/mysql
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  order-service:
+    build:
+      context: .
+      dockerfile: ./order-service/Dockerfile
+    container_name: melodyshop-order
+    ports:
+      - "8083:8083"
+    environment:
+      DB_HOST: order-db
+      DB_USERNAME: ${DB_USERNAME:-melodyshop}
+      DB_PASSWORD: ${DB_PASSWORD:-melodyshop_secret_2024}
+      ORDER_DB_NAME: ${ORDER_DB_NAME:-order_db}
+      EUREKA_HOST: eureka-server
+      SPRING_PROFILES_ACTIVE: dev
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    depends_on:
+      order-db:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - backend-network
 # ==================== NETWORKS & VOLUMES ====================
 networks:
   backend-network:
@@ -335,4 +379,5 @@ volumes:
   user-db-data:
   product-db-data:
   inventory-db-data:
+  order-db-data:
   elasticsearch-data:

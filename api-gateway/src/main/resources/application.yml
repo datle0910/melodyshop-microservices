@@ -41,6 +41,12 @@ spring:
           predicates:
             - Path=/api/search/**
 
+        # --- Order Service (Cart, Order, Coupon, Wishlist) ---
+        - id: order-service
+          uri: lb://order-service
+          predicates:
+            - Path=/api/cart/**,/api/orders/**,/api/coupons/**,/api/wishlist/**,/api/admin/orders/**,/api/admin/coupons/**
+
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
 

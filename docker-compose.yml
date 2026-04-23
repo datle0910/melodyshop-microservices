@@ -62,6 +62,65 @@ services:
       timeout: 5s
       retries: 5
 
+  product-db:
+    image: mariadb:10.11
+    container_name: melodyshop-product-db
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-root_secret_2024}
+      MARIADB_DATABASE: ${PRODUCT_DB_NAME:-product_db}
+      MARIADB_USER: ${DB_USERNAME:-melodyshop}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-melodyshop_secret_2024}
+    ports:
+      - "3308:3306"
+    volumes:
+      - product-db-data:/var/lib/mysql
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  inventory-db:
+    image: mariadb:10.11
+    container_name: melodyshop-inventory-db
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-root_secret_2024}
+      MARIADB_DATABASE: ${INVENTORY_DB_NAME:-inventory_db}
+      MARIADB_USER: ${DB_USERNAME:-melodyshop}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-melodyshop_secret_2024}
+    ports:
+      - "3309:3306"
+    volumes:
+      - inventory-db-data:/var/lib/mysql
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: melodyshop-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   # ==================== INFRASTRUCTURE ====================
   eureka-server:
     build:
@@ -161,6 +220,79 @@ services:
     networks:
       - backend-network
 
+  notification-service:
+    build:
+      context: .
+      dockerfile: ./notification-service/Dockerfile
+    container_name: melodyshop-notification
+    ports:
+      - "8085:8085"
+    environment:
+      EUREKA_HOST: eureka-server
+      MAIL_USERNAME: ${MAIL_USERNAME:-your-email@gmail.com}
+      MAIL_APP_PASSWORD: ${MAIL_APP_PASSWORD:-your-app-password}
+      SPRING_PROFILES_ACTIVE: dev
+      LOGSTASH_HOST: ${LOGSTASH_HOST:-}
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - backend-network
+
+  media-service:
+    build:
+      context: .
+      dockerfile: ./media-service/Dockerfile
+    container_name: melodyshop-media
+    ports:
+      - "8089:8087"
+    environment:
+      EUREKA_HOST: eureka-server
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-your-cloud-name}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-your-api-key}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-your-api-secret}
+      SPRING_PROFILES_ACTIVE: dev
+      LOGSTASH_HOST: ${LOGSTASH_HOST:-}
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - backend-network
+
+  product-service:
+    build:
+      context: .
+      dockerfile: ./product-service/Dockerfile
+    container_name: melodyshop-product
+    ports:
+      - "8082:8082"
+    environment:
+      DB_HOST: product-db
+      DB_USERNAME: ${DB_USERNAME:-melodyshop}
+      DB_PASSWORD: ${DB_PASSWORD:-melodyshop_secret_2024}
+      PRODUCT_DB_NAME: ${PRODUCT_DB_NAME:-product_db}
+      EUREKA_HOST: eureka-server
+      SPRING_PROFILES_ACTIVE: dev
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    depends_on:
+      product-db:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - backend-network
+
   payment-service:
     build:
       context: .
@@ -189,6 +321,32 @@ services:
     networks:
       - backend-network
 
+  inventory-service:
+    build:
+      context: .
+      dockerfile: ./inventory-service/Dockerfile
+    container_name: melodyshop-inventory
+    ports:
+      - "8086:8086"
+    environment:
+      DB_HOST: inventory-db
+      DB_USERNAME: ${DB_USERNAME:-melodyshop}
+      DB_PASSWORD: ${DB_PASSWORD:-melodyshop_secret_2024}
+      INVENTORY_DB_NAME: ${INVENTORY_DB_NAME:-inventory_db}
+      EUREKA_HOST: eureka-server
+      SPRING_PROFILES_ACTIVE: dev
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - backend-network
+
   customer-engagement-service:
     build:
       context: .
@@ -210,6 +368,29 @@ services:
     networks:
       - backend-network
 
+  search-service:
+    build:
+      context: .
+      dockerfile: ./search-service/Dockerfile
+    container_name: melodyshop-search
+    ports:
+      - "8090:8088"
+    environment:
+      EUREKA_HOST: eureka-server
+      ELASTICSEARCH_URI: http://elasticsearch:9200
+      SPRING_PROFILES_ACTIVE: dev
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - backend-network
+
 # ==================== NETWORKS & VOLUMES ====================
 networks:
   backend-network:
@@ -219,3 +400,6 @@ volumes:
   auth-db-data:
   user-db-data:
   payment-db-data:
+  product-db-data:
+  inventory-db-data:
+  elasticsearch-data:

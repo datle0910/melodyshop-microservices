@@ -26,6 +26,11 @@
         <module>user-service</module>
         <module>payment-service</module>
         <module>customer-engagement-service</module>
+        <module>notification-service</module>
+        <module>media-service</module>
+        <module>product-service</module>
+        <module>inventory-service</module>
+        <module>search-service</module>
     </modules>
 
     <properties>
@@ -84,6 +89,13 @@
                 <groupId>org.springdoc</groupId>
                 <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
                 <version>${springdoc.version}</version>
+            </dependency>
+
+            <!-- Logstash Logback Encoder (for ELK integration) -->
+            <dependency>
+                <groupId>net.logstash.logback</groupId>
+                <artifactId>logstash-logback-encoder</artifactId>
+                <version>7.4</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

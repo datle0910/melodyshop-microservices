@@ -24,6 +24,10 @@ import java.util.Base64;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import lombok.extern.slf4j.Slf4j;
+import com.melodyshop.auth.client.NotificationServiceClient;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -33,6 +37,7 @@ public class AuthServiceImpl implements AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final NotificationServiceClient notificationServiceClient;
 
     @Override
     @Transactional
@@ -59,6 +64,13 @@ public class AuthServiceImpl implements AuthService {
         user.getRoles().add(customerRole);
 
         user = userRepository.save(user);
+
+        // Send welcome email
+        try {
+            notificationServiceClient.sendWelcomeEmail(user.getEmail(), user.getFullName());
+        } catch (Exception e) {
+            log.error("Failed to send welcome email to {}: {}", user.getEmail(), e.getMessage());
+        }
 
         // Generate tokens
         return generateAuthResponse(user);

@@ -1,0 +1,51 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: notification-service
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:your-email@gmail.com}
+    password: ${MAIL_APP_PASSWORD:your-app-password}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+        debug: false
+  thymeleaf:
+    prefix: classpath:/templates/email/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+
+notification:
+  from-name: MelodyShop
+  from-email: ${MAIL_USERNAME:your-email@gmail.com}
+  otp:
+    expiry-minutes: 5
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8761}/eureka/
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.melodyshop.notification: INFO
+    org.springframework.mail: WARN

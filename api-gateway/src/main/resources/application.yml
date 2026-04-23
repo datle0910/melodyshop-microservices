@@ -23,23 +23,18 @@ spring:
           predicates:
             - Path=/api/users/**
 
-        # --- Payment Service ---
-        - id: payment-service
-          uri: lb://payment-service
+        # --- Customer Engagement Service: Review read by product ---
+        # Must be before product-service because it is more specific
+        - id: customer-engagement-product-review-service
+          uri: lb://customer-engagement-service
           predicates:
-            - Path=/api/payments/**
+            - Path=/api/products/*/reviews
 
         # --- Customer Engagement Service: Review write ---
         - id: customer-engagement-review-service
           uri: lb://customer-engagement-service
           predicates:
             - Path=/api/reviews/**
-
-        # --- Customer Engagement Service: Review read by product ---
-        - id: customer-engagement-product-review-service
-          uri: lb://customer-engagement-service
-          predicates:
-            - Path=/api/products/*/reviews
 
         # --- Customer Engagement Service: Wishlist ---
         - id: customer-engagement-wishlist-service
@@ -52,6 +47,30 @@ spring:
           uri: lb://customer-engagement-service
           predicates:
             - Path=/api/engagement/**
+
+        # --- Payment Service ---
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/payments/**
+
+        # --- Product Service ---
+        - id: product-service
+          uri: lb://product-service
+          predicates:
+            - Path=/api/products/**,/api/categories/**,/api/brands/**
+
+        # --- Inventory Service ---
+        - id: inventory-service
+          uri: lb://inventory-service
+          predicates:
+            - Path=/api/inventory/**,/api/admin/inventory/**
+
+        # --- Search Service ---
+        - id: search-service
+          uri: lb://search-service
+          predicates:
+            - Path=/api/search/**
 
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin

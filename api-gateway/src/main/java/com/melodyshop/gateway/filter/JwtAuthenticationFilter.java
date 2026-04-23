@@ -20,8 +20,9 @@ import java.util.List;
 
 /**
  * Global JWT authentication filter for API Gateway.
- * Validates JWT token and forwards user info to downstream services.
  * Public endpoints are excluded from authentication.
+ * After validation, user info is forwarded as headers
+ * to downstream services.
  */
 @Component
 public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
@@ -29,7 +30,11 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     @Value("${jwt.secret}")
     private String jwtSecret;
 
-    // Endpoints that don't require authentication
+    /**
+     * Endpoints that bypass JWT check.
+     * Keep auth endpoints, payment webhook, docs endpoints,
+     * and public catalog endpoints from both branches.
+     */
     private static final List<String> PUBLIC_ENDPOINTS = List.of(
             "/api/auth/login",
             "/api/auth/register",
@@ -50,12 +55,10 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
 
-        // Skip authentication for public endpoints
         if (isPublicEndpoint(path)) {
             return chain.filter(exchange);
         }
 
-        // Check Authorization header
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
@@ -67,7 +70,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         try {
             Claims claims = validateToken(token);
 
-            // Forward user info to downstream services via headers
             ServerHttpRequest modifiedRequest = request.mutate()
                     .header("X-User-Id", claims.getSubject())
                     .header("X-User-Email", claims.get("email", String.class))
@@ -98,6 +100,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return -1; // Run before other filters
+        return -1; // Highest priority - run before all other filters
     }
 }

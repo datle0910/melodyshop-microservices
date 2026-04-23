@@ -27,6 +27,7 @@ public class ProductService {
     private final ProductImageRepository imageRepository;
     private final CategoryRepository categoryRepository;
     private final BrandRepository brandRepository;
+    private final com.melodyshop.product.client.InventoryClient inventoryClient;
 
     /**
      * Lấy danh sách sản phẩm với phân trang, lọc, sắp xếp.
@@ -114,7 +115,16 @@ public class ProductService {
                         .size(v.getSize())
                         .isActive(true)
                         .build();
-                variantRepository.save(variant);
+                variant = variantRepository.save(variant);
+
+                // Gọi Inventory Service để khởi tạo kho
+                try {
+                    inventoryClient.initInventory(product.getId(), variant.getId(), variant.getSku());
+                } catch (Exception e) {
+                    // Log error but don't fail the whole transaction if inventory fails
+                    // In real production, you might want to retry or use a message queue
+                    System.err.println("Failed to initialize inventory for SKU " + v.getSku() + ": " + e.getMessage());
+                }
             }
         }
 

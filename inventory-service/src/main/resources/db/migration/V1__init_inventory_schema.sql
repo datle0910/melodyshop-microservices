@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS inventory_logs (
     note            VARCHAR(500) NULL,
     created_by      VARCHAR(36)  NULL,
     created_at      DATETIME     DEFAULT NOW(),
+    updated_at      DATETIME     DEFAULT NOW() ON UPDATE NOW(),
     PRIMARY KEY (id),
     INDEX idx_logs_inventory (inventory_id),
     INDEX idx_logs_action (action),

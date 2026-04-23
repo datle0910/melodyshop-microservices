@@ -131,6 +131,28 @@ public class InventoryService {
         return toDTO(inventory);
     }
 
+    /**
+     * Khởi tạo kho cho sản phẩm mới (số lượng 0).
+     */
+    @Transactional
+    public void initInventory(String productId, String variantId, String sku) {
+        if (inventoryRepository.existsBySkuAndWarehouseId(sku, DEFAULT_WAREHOUSE)) {
+            return;
+        }
+
+        Inventory inventory = Inventory.builder()
+                .productId(productId)
+                .variantId(variantId)
+                .sku(sku)
+                .warehouseId(DEFAULT_WAREHOUSE)
+                .quantity(0)
+                .reservedQuantity(0)
+                .reorderPoint(10)
+                .build();
+        inventoryRepository.save(inventory);
+        log.info("Initialized inventory for SKU: {}", sku);
+    }
+
     // ==================== Admin APIs ====================
 
     /**

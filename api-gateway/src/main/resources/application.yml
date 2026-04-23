@@ -23,6 +23,37 @@ spring:
           predicates:
             - Path=/api/users/**
 
+        # --- Customer Engagement Service: Review read by product ---
+        # Must be before product-service because it is more specific
+        - id: customer-engagement-product-review-service
+          uri: lb://customer-engagement-service
+          predicates:
+            - Path=/api/products/*/reviews
+
+        # --- Customer Engagement Service: Review write ---
+        - id: customer-engagement-review-service
+          uri: lb://customer-engagement-service
+          predicates:
+            - Path=/api/reviews/**
+
+        # --- Customer Engagement Service: Wishlist ---
+        - id: customer-engagement-wishlist-service
+          uri: lb://customer-engagement-service
+          predicates:
+            - Path=/api/wishlist/**
+
+        # --- Customer Engagement Service: Internal event simulation and docs ---
+        - id: customer-engagement-internal-service
+          uri: lb://customer-engagement-service
+          predicates:
+            - Path=/api/engagement/**
+
+        # --- Payment Service ---
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/payments/**
+
         # --- Product Service ---
         - id: product-service
           uri: lb://product-service

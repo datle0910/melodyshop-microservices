@@ -1,0 +1,10 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${ENGAGEMENT_DB_HOST:localhost}:${ENGAGEMENT_DB_PORT:5432}/${ENGAGEMENT_DB_NAME:engagement_db}
+    username: ${ENGAGEMENT_DB_USERNAME:postgres}
+    password: ${ENGAGEMENT_DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect

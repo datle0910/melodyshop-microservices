@@ -24,6 +24,8 @@
         <module>api-gateway</module>
         <module>auth-service</module>
         <module>user-service</module>
+        <module>payment-service</module>
+        <module>customer-engagement-service</module>
         <module>notification-service</module>
         <module>media-service</module>
         <module>product-service</module>

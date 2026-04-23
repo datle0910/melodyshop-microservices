@@ -20,9 +20,9 @@ import java.util.List;
 
 /**
  * Global JWT authentication filter for API Gateway.
- * ALL endpoints require Bearer token EXCEPT login/register/refresh.
- * After validation, user info (id, email, role) is forwarded as headers
- * to downstream services: X-User-Id, X-User-Email, X-User-Role.
+ * Public endpoints are excluded from authentication.
+ * After validation, user info is forwarded as headers
+ * to downstream services.
  */
 @Component
 public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
@@ -31,13 +31,22 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     private String jwtSecret;
 
     /**
-     * ONLY these 3 auth endpoints bypass JWT check.
-     * Every other endpoint (products, search, inventory, users...) REQUIRES Bearer token.
+     * Endpoints that bypass JWT check.
+     * Keep auth endpoints, payment webhook, docs endpoints,
+     * and public catalog endpoints from both branches.
      */
     private static final List<String> PUBLIC_ENDPOINTS = List.of(
             "/api/auth/login",
             "/api/auth/register",
             "/api/auth/refresh",
+            "/api/payments/webhook",
+            "/api/payments/v3/api-docs",
+            "/api/payments/swagger-ui",
+            "/api/engagement/v3/api-docs",
+            "/api/engagement/swagger-ui",
+            "/api/products",
+            "/api/categories",
+            "/api/brands",
             "/eureka"
     );
 
@@ -46,12 +55,10 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
 
-        // Only skip auth for login/register/refresh
         if (isPublicEndpoint(path)) {
             return chain.filter(exchange);
         }
 
-        // ALL other endpoints REQUIRE Bearer token
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
@@ -63,7 +70,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         try {
             Claims claims = validateToken(token);
 
-            // Forward user info to downstream services via request headers
             ServerHttpRequest modifiedRequest = request.mutate()
                     .header("X-User-Id", claims.getSubject())
                     .header("X-User-Email", claims.get("email", String.class))
@@ -94,6 +100,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return -1; // Highest priority — run before all other filters
+        return -1; // Highest priority - run before all other filters
     }
 }

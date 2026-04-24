@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS product_images (
     sort_order  INT          DEFAULT 0,
     is_primary  TINYINT(1)   DEFAULT 0,
     created_at  DATETIME     DEFAULT NOW(),
+    updated_at  DATETIME     DEFAULT NOW() ON UPDATE NOW(),
     PRIMARY KEY (id),
     INDEX idx_images_product (product_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -95,7 +96,7 @@ CREATE TABLE IF NOT EXISTS reviews (
     id          VARCHAR(36)  NOT NULL,
     product_id  VARCHAR(36)  NOT NULL,
     user_id     VARCHAR(36)  NOT NULL,
-    rating      TINYINT      NOT NULL COMMENT '1-5 sao',
+    rating      INT          NOT NULL COMMENT '1-5 sao',
     comment     TEXT         NULL,
     is_verified TINYINT(1)   DEFAULT 0 COMMENT 'Verified purchase',
     created_at  DATETIME     DEFAULT NOW(),

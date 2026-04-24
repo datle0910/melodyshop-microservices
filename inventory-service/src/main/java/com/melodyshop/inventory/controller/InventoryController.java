@@ -61,4 +61,16 @@ public class InventoryController {
         return ResponseEntity.ok(ApiResponse.ok("Hủy đặt chỗ thành công",
                 inventoryService.unreserveStock(request)));
     }
+
+    /**
+     * Khởi tạo kho cho sản phẩm mới — Internal call từ Product Service.
+     */
+    @PostMapping("/init")
+    public ResponseEntity<ApiResponse<Void>> initInventory(
+            @RequestParam String productId,
+            @RequestParam(required = false) String variantId,
+            @RequestParam String sku) {
+        inventoryService.initInventory(productId, variantId, sku);
+        return ResponseEntity.ok(ApiResponse.ok("Khởi tạo kho thành công", null));
+    }
 }

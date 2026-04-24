@@ -485,6 +485,207 @@
 					}
 				}
 			]
+		},
+		{
+			"name": "5. Product Service (:8080)",
+			"item": [
+				{
+					"name": "5.1 Products",
+					"item": [
+						{
+							"name": "Get Products (Paginated & Filtered)",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://localhost:8080/api/products?page=0&size=10&sortBy=newest",
+									"protocol": "http",
+									"host": ["localhost"],
+									"port": "8080",
+									"path": ["api", "products"],
+									"query": [
+										{ "key": "page", "value": "0" },
+										{ "key": "size", "value": "10" },
+										{ "key": "sortBy", "value": "newest" }
+									]
+								}
+							}
+						},
+						{
+							"name": "Create Product (Admin)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" },
+									{ "key": "Content-Type", "value": "application/json" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Đàn Guitar Yamaha F310\",\n    \"shortDesc\": \"Đàn guitar chất lượng cao\",\n    \"description\": \"Nội dung mô tả chi tiết...\",\n    \"basePrice\": 3500000,\n    \"categoryId\": \"12dacd2f-3b0f-443a-85c4-470827e48770\",\n    \"specs\": \"{\\\"material\\\": \\\"Gỗ thông\\\", \\\"origin\\\": \\\"Indonesia\\\"}\",\n    \"variants\": [\n        {\n            \"variantName\": \"Màu Tự Nhiên\",\n            \"sku\": \"YAM-F310-NAT-TEST\",\n            \"price\": 3500000\n        }\n    ]\n}"
+								},
+								"url": "http://localhost:8080/api/products"
+							}
+						}
+					]
+				},
+				{
+					"name": "5.2 Categories",
+					"item": [
+						{
+							"name": "Get Categories",
+							"request": {
+								"method": "GET",
+								"url": "http://localhost:8080/api/categories"
+							}
+						},
+						{
+							"name": "Create Category (Admin)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" },
+									{ "key": "Content-Type", "value": "application/json" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Guitar Acoustic\",\n    \"description\": \"Các loại đàn guitar thùng\"\n}"
+								},
+								"url": "http://localhost:8080/api/categories"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "6. Inventory Service (:8080)",
+			"item": [
+				{
+					"name": "6.1 Stock Operations",
+					"item": [
+						{
+							"name": "Check Stock",
+							"request": {
+								"method": "GET",
+								"url": {
+									"raw": "http://localhost:8080/api/inventory/check?sku=YAMAHA-F310-NAT&quantity=1",
+									"protocol": "http",
+									"host": ["localhost"],
+									"port": "8080",
+									"path": ["api", "inventory", "check"],
+									"query": [
+										{ "key": "sku", "value": "YAMAHA-F310-NAT" },
+										{ "key": "quantity", "value": "1" }
+									]
+								}
+							}
+						},
+						{
+							"name": "Reserve Stock (Locking Test)",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" },
+									{ "key": "Content-Type", "value": "application/json" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sku\": \"YAMAHA-F310-NAT\",\n    \"quantity\": 1,\n    \"orderId\": \"ORDER-123\",\n    \"note\": \"Locking for test\"\n}"
+								},
+								"url": "http://localhost:8080/api/inventory/reserve"
+							}
+						}
+					]
+				},
+				{
+					"name": "6.2 Admin Inventory",
+					"item": [
+						{
+							"name": "Get All Inventory",
+							"request": {
+								"method": "GET",
+								"header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+								"url": "http://localhost:8080/api/admin/inventory"
+							}
+						},
+						{
+							"name": "Update Stock (Import)",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" },
+									{ "key": "Content-Type", "value": "application/json" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"productId\": \"3dac616a-861a-4e4d-967d-43317ba6a1b1\",\n    \"variantId\": \"bbf0ecbe-f301-4b2c-983a-27090e15b044\",\n    \"sku\": \"YAM-P125-B-001\",\n    \"warehouseId\": \"default-warehouse-001\",\n    \"quantity\": 150,\n    \"reorderPoint\": 10,\n    \"note\": \"Cập nhật tồn kho định kỳ\"\n}"
+								},
+								"url": "http://localhost:8080/api/admin/inventory/a0a7f29c-0151-47ab-adff-b0d1479fe5e6"
+							}
+						},
+						{
+							"name": "Get Inventory Logs",
+							"request": {
+								"method": "GET",
+								"header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+								"url": "http://localhost:8080/api/admin/inventory/a0a7f29c-0151-47ab-adff-b0d1479fe5e6/logs"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "7. Search Service (:8080)",
+			"item": [
+				{
+					"name": "Search Products",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "http://localhost:8080/api/search/products?keyword=Yamaha",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8080",
+							"path": ["api", "search", "products"],
+							"query": [
+								{ "key": "keyword", "value": "Yamaha" }
+							]
+						}
+					}
+				},
+				{
+					"name": "Search Suggest (Autocomplete)",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "http://localhost:8080/api/search/suggest?q=Gui",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8080",
+							"path": ["api", "search", "suggest"],
+							"query": [
+								{ "key": "q", "value": "Gui" }
+							]
+						}
+					}
+				},
+				{
+					"name": "Index Product",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id\": \"bc2cee8e-3c64-4337-b218-cb74529e9e02\",\n    \"name\": \"Đàn Guitar Yamaha F310\",\n    \"slug\": \"dan-guitar-yamaha-f310\",\n    \"description\": \"Nội dung mô tả chi tiết...\",\n    \"shortDesc\": \"Đàn guitar chất lượng cao\",\n    \"basePrice\": 3500000,\n    \"categoryId\": \"12dacd2f-3b0f-443a-85c4-470827e48770\",\n    \"categoryName\": \"Guitar\",\n    \"isFeatured\": true,\n    \"isActive\": true\n}"
+						},
+						"url": "http://localhost:8080/api/search/index"
+					}
+				}
+			]
 		}
 	],
 	"variable": [

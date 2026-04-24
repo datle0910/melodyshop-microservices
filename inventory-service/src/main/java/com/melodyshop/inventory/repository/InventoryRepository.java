@@ -17,6 +17,7 @@ import java.util.Optional;
 public interface InventoryRepository extends JpaRepository<Inventory, String> {
 
     Optional<Inventory> findBySkuAndWarehouseId(String sku, String warehouseId);
+    boolean existsBySkuAndWarehouseId(String sku, String warehouseId);
 
     /**
      * Lấy tồn kho theo SKU (tổng từ tất cả kho).

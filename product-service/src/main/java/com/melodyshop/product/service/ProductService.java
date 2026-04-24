@@ -159,8 +159,13 @@ public class ProductService {
     public void deleteProduct(String id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm", "id", id));
-        product.setIsActive(false);
-        productRepository.save(product);
+        
+        // Xóa các biến thể trước để tránh lỗi khóa ngoại
+        if (product.getVariants() != null) {
+            variantRepository.deleteAll(product.getVariants());
+        }
+        
+        productRepository.delete(product);
     }
 
     /**

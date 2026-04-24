@@ -521,9 +521,32 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"name\": \"Đàn Guitar Yamaha F310\",\n    \"shortDesc\": \"Đàn guitar chất lượng cao\",\n    \"description\": \"Nội dung mô tả chi tiết...\",\n    \"basePrice\": 3500000,\n    \"categoryId\": \"12dacd2f-3b0f-443a-85c4-470827e48770\",\n    \"specs\": \"{\\\"material\\\": \\\"Gỗ thông\\\", \\\"origin\\\": \\\"Indonesia\\\"}\",\n    \"variants\": [\n        {\n            \"variantName\": \"Màu Tự Nhiên\",\n            \"sku\": \"YAM-F310-NAT-TEST\",\n            \"price\": 3500000\n        }\n    ]\n}"
+									"raw": "{\n    \"name\": \"Đàn Guitar Yamaha F310\",\n    \"shortDesc\": \"Đàn guitar chất lượng cao\",\n    \"description\": \"Nội dung mô tả chi tiết...\",\n    \"basePrice\": 3500000,\n    \"categoryId\": \"DÁN_ID_CATEGORY_VÀO_ĐÂY\",\n    \"brandId\": \"DÁN_ID_BRAND_VÀO_ĐÂY\",\n    \"specs\": \"{\\\"material\\\": \\\"Gỗ thông\\\", \\\"origin\\\": \\\"Indonesia\\\"}\",\n    \"variants\": [\n        {\n            \"variantName\": \"Màu Tự Nhiên\",\n            \"sku\": \"YAM-F310-NAT-001\",\n            \"price\": 3500000\n        }\n    ]\n}"
 								},
 								"url": "http://localhost:8080/api/products"
+							}
+						},
+						{
+							"name": "Update Product (Admin)",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" },
+									{ "key": "Content-Type", "value": "application/json" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Đàn Guitar Yamaha F310 (Updated)\",\n    \"shortDesc\": \"Mô tả ngắn gọn mới\",\n    \"description\": \"Nội dung mô tả chi tiết mới...\",\n    \"basePrice\": 3600000,\n    \"categoryId\": \"12dacd2f-3b0f-443a-85c4-470827e48770\",\n    \"isFeatured\": true\n}"
+								},
+								"url": "http://localhost:8080/api/products/DÁN_ID_VÀO_ĐÂY"
+							}
+						},
+						{
+							"name": "Delete Product (Admin)",
+							"request": {
+								"method": "DELETE",
+								"header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+								"url": "http://localhost:8080/api/products/DÁN_ID_VÀO_ĐÂY"
 							}
 						}
 					]
@@ -551,6 +574,79 @@
 									"raw": "{\n    \"name\": \"Guitar Acoustic\",\n    \"description\": \"Các loại đàn guitar thùng\"\n}"
 								},
 								"url": "http://localhost:8080/api/categories"
+							}
+						},
+						{
+							"name": "Update Category (Admin)",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" },
+									{ "key": "Content-Type", "value": "application/json" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Guitar (Updated)\",\n    \"description\": \"Mô tả danh mục mới\"\n}"
+								},
+								"url": "http://localhost:8080/api/categories/DÁN_ID_VÀO_ĐÂY"
+							}
+						},
+						{
+							"name": "Delete Category (Admin)",
+							"request": {
+								"method": "DELETE",
+								"header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+								"url": "http://localhost:8080/api/categories/DÁN_ID_VÀO_ĐÂY"
+							}
+						}
+					]
+				},
+				{
+					"name": "5.3 Brands",
+					"item": [
+						{
+							"name": "Get Brands",
+							"request": {
+								"method": "GET",
+								"url": "http://localhost:8080/api/brands"
+							}
+						},
+						{
+							"name": "Create Brand (Admin)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" },
+									{ "key": "Content-Type", "value": "application/json" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Yamaha\",\n    \"description\": \"Thương hiệu nhạc cụ hàng đầu Nhật Bản\"\n}"
+								},
+								"url": "http://localhost:8080/api/brands"
+							}
+						},
+						{
+							"name": "Update Brand (Admin)",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" },
+									{ "key": "Content-Type", "value": "application/json" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Yamaha (Updated)\",\n    \"description\": \"Mô tả thương hiệu mới\"\n}"
+								},
+								"url": "http://localhost:8080/api/brands/DÁN_ID_VÀO_ĐÂY"
+							}
+						},
+						{
+							"name": "Delete Brand (Admin)",
+							"request": {
+								"method": "DELETE",
+								"header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+								"url": "http://localhost:8080/api/brands/DÁN_ID_VÀO_ĐÂY"
 							}
 						}
 					]

@@ -266,6 +266,8 @@ services:
         condition: service_healthy
     networks:
       - backend-network
+    volumes:
+      - ./img-product:/app/img-product
 
   product-service:
     build:

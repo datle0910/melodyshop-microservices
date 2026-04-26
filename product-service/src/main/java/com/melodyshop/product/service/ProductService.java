@@ -248,7 +248,7 @@ public class ProductService {
         }
         Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
         return switch (sortBy.toLowerCase()) {
-            case "price" -> Sort.by(direction, "basePrice");
+            case "price", "baseprice" -> Sort.by(direction, "basePrice");
             case "name" -> Sort.by(direction, "name");
             case "rating" -> Sort.by(direction, "avgRating");
             case "newest" -> Sort.by(Sort.Direction.DESC, "createdAt");

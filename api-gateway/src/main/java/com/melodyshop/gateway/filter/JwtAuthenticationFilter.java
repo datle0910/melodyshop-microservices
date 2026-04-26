@@ -44,9 +44,9 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/payments/swagger-ui",
             "/api/engagement/v3/api-docs",
             "/api/engagement/swagger-ui",
-            "/api/products",
-            "/api/categories",
-            "/api/brands",
+            "/api/products",     // Allow public catalog browsing
+            "/api/categories",   // Allow category listing
+            "/api/brands",       // Allow brand listing
             "/eureka"
     );
 

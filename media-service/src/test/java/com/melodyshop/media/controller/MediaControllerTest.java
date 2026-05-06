@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -41,8 +42,9 @@ class MediaControllerTest {
     void ping_returns200AndServiceName() throws Exception {
         mockMvc.perform(get("/api/media/ping"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.service").value("media-service"))
-                .andExpect(jsonPath("$.status").value("UP"));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.service").value("media-service"))
+                .andExpect(jsonPath("$.data.status").value("UP"));
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -50,8 +52,8 @@ class MediaControllerTest {
     // ─────────────────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("POST /upload with valid JPEG file → 200 OK, returns URL and publicId")
-    void upload_withValidJpeg_returns200() throws Exception {
+    @DisplayName("POST /upload with valid JPEG file → 201 Created, returns URL and publicId")
+    void upload_withValidJpeg_returns201() throws Exception {
         UploadResponse response = UploadResponse.builder()
                 .url("https://res.cloudinary.com/demo/melodyshop/products/guitar.jpg")
                 .publicId("melodyshop/products/guitar")
@@ -70,12 +72,13 @@ class MediaControllerTest {
         mockMvc.perform(multipart("/api/media/upload")
                         .file(file)
                         .param("type", "product"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.url").value(containsString("cloudinary.com")))
-                .andExpect(jsonPath("$.publicId").value("melodyshop/products/guitar"))
-                .andExpect(jsonPath("$.format").value("jpg"))
-                .andExpect(jsonPath("$.width").value(1280))
-                .andExpect(jsonPath("$.height").value(720));
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.url").value(containsString("cloudinary.com")))
+                .andExpect(jsonPath("$.data.publicId").value("melodyshop/products/guitar"))
+                .andExpect(jsonPath("$.data.format").value("jpg"))
+                .andExpect(jsonPath("$.data.width").value(1280))
+                .andExpect(jsonPath("$.data.height").value(720));
 
         verify(cloudinaryService).upload(any(), eq("product"));
     }
@@ -96,15 +99,14 @@ class MediaControllerTest {
                 "file", "image.jpg", "image/jpeg", new byte[256]);
 
         mockMvc.perform(multipart("/api/media/upload").file(file))
-                .andExpect(status().isOk());
+                .andExpect(status().isCreated());
 
-        // Default type is "product"
         verify(cloudinaryService).upload(any(), eq("product"));
     }
 
     @Test
-    @DisplayName("POST /upload for avatar type → 200 OK with correct folder")
-    void upload_avatarType_returns200() throws Exception {
+    @DisplayName("POST /upload for avatar type → 201 Created with correct folder")
+    void upload_avatarType_returns201() throws Exception {
         UploadResponse response = UploadResponse.builder()
                 .url("https://res.cloudinary.com/demo/avatar.png")
                 .publicId("melodyshop/avatars/user-123")
@@ -120,8 +122,8 @@ class MediaControllerTest {
         mockMvc.perform(multipart("/api/media/upload")
                         .file(file)
                         .param("type", "avatar"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.folder").value("melodyshop/avatars"));
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.folder").value("melodyshop/avatars"));
     }
 
     @Test
@@ -150,8 +152,9 @@ class MediaControllerTest {
                         .param("publicId", "melodyshop/products/guitar-001")
                         .header("X-User-Role", "ROLE_ADMIN"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("deleted"))
-                .andExpect(jsonPath("$.publicId").value("melodyshop/products/guitar-001"));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("deleted"))
+                .andExpect(jsonPath("$.data.publicId").value("melodyshop/products/guitar-001"));
 
         verify(cloudinaryService).delete("melodyshop/products/guitar-001");
     }
@@ -161,9 +164,10 @@ class MediaControllerTest {
     void delete_withoutAdminRole_returns403() throws Exception {
         mockMvc.perform(delete("/api/media/delete")
                         .param("publicId", "melodyshop/products/guitar-001")
-                        .header("X-User-Role", "ROLE_CUSTOMER"))   // ← not admin
+                        .header("X-User-Role", "ROLE_CUSTOMER"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error").value(containsString("admin")));
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message", containsString("Admin")));
 
         verifyNoInteractions(cloudinaryService);
     }
@@ -173,7 +177,6 @@ class MediaControllerTest {
     void delete_withNoRoleHeader_returns403() throws Exception {
         mockMvc.perform(delete("/api/media/delete")
                         .param("publicId", "melodyshop/products/guitar-001"))
-                // No X-User-Role header → defaults to ""
                 .andExpect(status().isForbidden());
 
         verifyNoInteractions(cloudinaryService);

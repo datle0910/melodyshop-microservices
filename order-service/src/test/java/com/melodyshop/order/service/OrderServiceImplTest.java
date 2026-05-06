@@ -118,12 +118,12 @@ class OrderServiceImplTest {
         assertEquals(OrderStatus.PENDING, result.getStatus());
         assertEquals(1, result.getItems().size());
         assertEquals("Fender Stratocaster", result.getItems().get(0).getProductName());
-        verify(orderRepository, times(2)).save(any(Order.class));
+        verify(orderRepository).save(any(Order.class));
         verify(statusHistoryRepository).save(any(OrderStatusHistory.class));
     }
 
     @Test
-    void createOrder_withOnlinePayment_shouldCreatePayment() {
+    void createOrder_withOnlinePayment_shouldThrowWhenPaymentFails() {
         createOrderRequest.setPaymentMethod(PaymentMethod.CREDIT_CARD);
         createOrderRequest.getItems().get(0).setSku("SKU-001");
 
@@ -132,13 +132,10 @@ class OrderServiceImplTest {
             o.setId("order-001");
             return o;
         });
-        when(statusHistoryRepository.save(any(OrderStatusHistory.class))).thenReturn(new OrderStatusHistory());
         when(paymentClient.createPayment(any())).thenReturn(null);
 
-        OrderDTO result = orderService.createOrder(userId, createOrderRequest);
-
-        assertNotNull(result);
-        verify(paymentClient).createPayment(any());
+        assertThrows(BadRequestException.class, () ->
+                orderService.createOrder(userId, createOrderRequest));
     }
 
     @Test

@@ -25,8 +25,14 @@ public class NotificationController {
             @Valid @RequestBody EmailRequest request) {
 
         emailService.sendEmail(request);
-        return ResponseEntity.ok(ApiResponse.ok("Gửi email thành công",
-                Map.of("to", request.getTo())));
+        return ResponseEntity.ok(ApiResponse.<Map<String, String>>builder()
+                .success(true)
+                .message("Email sent successfully")
+                .data(Map.of(
+                        "status", "sent",
+                        "to", request.getTo()
+                ))
+                .build());
     }
 
     @PostMapping("/otp")
@@ -34,11 +40,15 @@ public class NotificationController {
             @Valid @RequestBody OtpRequest request) {
 
         String otp = emailService.sendOtp(request.getTo(), request.getRecipientName());
-        return ResponseEntity.ok(ApiResponse.ok("Gửi mã OTP thành công",
-                Map.of(
+        return ResponseEntity.ok(ApiResponse.<Map<String, String>>builder()
+                .success(true)
+                .message("OTP sent successfully")
+                .data(Map.of(
+                        "status", "sent",
                         "to", request.getTo(),
                         "otp", otp
-                )));
+                ))
+                .build());
     }
 
     @PostMapping("/welcome")
@@ -47,8 +57,14 @@ public class NotificationController {
             @RequestParam String fullName) {
 
         emailService.sendWelcomeEmail(email, fullName);
-        return ResponseEntity.ok(ApiResponse.ok("Gửi email chào mừng thành công",
-                Map.of("to", email)));
+        return ResponseEntity.ok(ApiResponse.<Map<String, String>>builder()
+                .success(true)
+                .message("Welcome email sent successfully")
+                .data(Map.of(
+                        "status", "sent",
+                        "to", email
+                ))
+                .build());
     }
 
     @PostMapping("/order-confirmed")
@@ -59,12 +75,25 @@ public class NotificationController {
             @RequestParam String totalAmount) {
 
         emailService.sendOrderConfirmationEmail(email, fullName, orderCode, totalAmount);
-        return ResponseEntity.ok(ApiResponse.ok("Gửi email xác nhận đơn hàng thành công",
-                Map.of("orderCode", orderCode)));
+        return ResponseEntity.ok(ApiResponse.<Map<String, String>>builder()
+                .success(true)
+                .message("Order confirmation email sent successfully")
+                .data(Map.of(
+                        "status", "sent",
+                        "orderCode", orderCode
+                ))
+                .build());
     }
 
     @GetMapping("/ping")
-    public ResponseEntity<ApiResponse<String>> ping() {
-        return ResponseEntity.ok(ApiResponse.ok("Notification service đang hoạt động"));
+    public ResponseEntity<ApiResponse<Map<String, String>>> ping() {
+        return ResponseEntity.ok(ApiResponse.<Map<String, String>>builder()
+                .success(true)
+                .message("Notification service is running")
+                .data(Map.of(
+                        "service", "notification-service",
+                        "status", "UP"
+                ))
+                .build());
     }
 }

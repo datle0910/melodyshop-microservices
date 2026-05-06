@@ -5,6 +5,7 @@ import com.melodyshop.engagement.dto.AddWishlistItemRequest;
 import com.melodyshop.engagement.dto.WishlistItemResponse;
 import com.melodyshop.engagement.service.WishlistService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,15 +26,16 @@ public class WishlistController {
             @RequestHeader("X-User-Id") String userId,
             @Valid @RequestBody AddWishlistItemRequest request) {
         WishlistItemResponse response = wishlistService.addToWishlist(userId, request);
-        return ResponseEntity.ok(ApiResponse.ok("Thêm vào wishlist thành công", response));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.created("Thêm vào wishlist thành công", response));
     }
 
     @DeleteMapping("/{productId}")
-    public ResponseEntity<ApiResponse<Void>> removeFromWishlist(
+    public ResponseEntity<Void> removeFromWishlist(
             @RequestHeader("X-User-Id") String userId,
             @PathVariable String productId) {
         wishlistService.removeFromWishlist(userId, productId);
-        return ResponseEntity.ok(ApiResponse.ok("Xóa khỏi wishlist thành công", null));
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping

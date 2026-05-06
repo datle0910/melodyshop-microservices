@@ -6,6 +6,7 @@ import com.melodyshop.product.dto.*;
 import com.melodyshop.product.entity.*;
 import com.melodyshop.product.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +19,7 @@ import java.math.RoundingMode;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProductService {
@@ -123,7 +125,8 @@ public class ProductService {
                 } catch (Exception e) {
                     // Log error but don't fail the whole transaction if inventory fails
                     // In real production, you might want to retry or use a message queue
-                    System.err.println("Failed to initialize inventory for SKU " + v.getSku() + ": " + e.getMessage());
+                    log.error("Failed to initialize inventory for SKU {}: {}",
+                            v.getSku(), e.getMessage());
                 }
             }
         }

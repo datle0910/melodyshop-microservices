@@ -23,6 +23,18 @@ spring:
           predicates:
             - Path=/api/users/**
 
+        # --- Order Service ---
+        - id: order-service
+          uri: lb://order-service
+          predicates:
+            - Path=/api/orders/**,/api/admin/orders/**
+
+        # --- Cart Service ---
+        - id: cart-service
+          uri: lb://cart-service
+          predicates:
+            - Path=/api/cart/**
+
         # --- Customer Engagement Service: Review read by product ---
         # Must be before product-service because it is more specific
         - id: customer-engagement-product-review-service
@@ -72,11 +84,29 @@ spring:
           predicates:
             - Path=/api/search/**
 
+        # --- Media Service ---
+        - id: media-service
+          uri: lb://media-service
+          predicates:
+            - Path=/api/media/**
+
+        # --- Notification Service (internal only) ---
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/notifications/**
+
+        # --- AI Service ---
+        - id: ai-service
+          uri: lb://ai-service
+          predicates:
+            - Path=/api/ai/**
+
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
 
 jwt:
-  secret: ${JWT_SECRET:bWVsb2R5c2hvcC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tMjAyNC12ZXJ5LWxvbmctc2VjcmV0}
+  secret: ${JWT_SECRET:REPLACE_WITH_YOUR_SECRET_KEY}
 
 eureka:
   client:

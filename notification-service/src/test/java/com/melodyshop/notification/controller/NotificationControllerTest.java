@@ -47,8 +47,9 @@ class NotificationControllerTest {
     void ping_shouldReturn200AndServiceName() throws Exception {
         mockMvc.perform(get("/api/notifications/ping"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.service").value("notification-service"))
-                .andExpect(jsonPath("$.status").value("UP"));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.service").value("notification-service"))
+                .andExpect(jsonPath("$.data.status").value("UP"));
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -71,8 +72,9 @@ class NotificationControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("sent"))
-                .andExpect(jsonPath("$.to").value("user@test.com"));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("sent"))
+                .andExpect(jsonPath("$.data.to").value("user@test.com"));
 
         verify(emailService).sendEmail(any(EmailRequest.class));
     }
@@ -81,7 +83,7 @@ class NotificationControllerTest {
     @DisplayName("POST /email with invalid email → 400 Bad Request")
     void sendEmail_withInvalidEmail_returns400() throws Exception {
         EmailRequest request = EmailRequest.builder()
-                .to("not-a-valid-email")  // ← invalid
+                .to("not-a-valid-email")
                 .subject("Test")
                 .templateName("welcome")
                 .build();
@@ -99,7 +101,7 @@ class NotificationControllerTest {
     void sendEmail_withBlankSubject_returns400() throws Exception {
         EmailRequest request = EmailRequest.builder()
                 .to("user@test.com")
-                .subject("")    // ← blank
+                .subject("")
                 .templateName("welcome")
                 .build();
 
@@ -136,9 +138,10 @@ class NotificationControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("sent"))
-                .andExpect(jsonPath("$.otp").value("482931"))
-                .andExpect(jsonPath("$.to").value("user@test.com"));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("sent"))
+                .andExpect(jsonPath("$.data.otp").value("482931"))
+                .andExpect(jsonPath("$.data.to").value("user@test.com"));
 
         verify(emailService).sendOtp("user@test.com", "Nguyen Van A");
     }
@@ -172,8 +175,9 @@ class NotificationControllerTest {
                         .param("email", "user@test.com")
                         .param("fullName", "Nguyen Van A"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("sent"))
-                .andExpect(jsonPath("$.to").value("user@test.com"));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("sent"))
+                .andExpect(jsonPath("$.data.to").value("user@test.com"));
 
         verify(emailService).sendWelcomeEmail("user@test.com", "Nguyen Van A");
     }
@@ -192,12 +196,13 @@ class NotificationControllerTest {
                         .param("email", "user@test.com")
                         .param("fullName", "Nguyen Van A")
                         .param("orderCode", "ORD-2024-001")
-                        .param("totalAmount", "5,000,000 ₫"))
+                        .param("totalAmount", "5,000,000 VND"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("sent"))
-                .andExpect(jsonPath("$.orderCode").value("ORD-2024-001"));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("sent"))
+                .andExpect(jsonPath("$.data.orderCode").value("ORD-2024-001"));
 
         verify(emailService).sendOrderConfirmationEmail(
-                "user@test.com", "Nguyen Van A", "ORD-2024-001", "5,000,000 ₫");
+                "user@test.com", "Nguyen Van A", "ORD-2024-001", "5,000,000 VND");
     }
 }

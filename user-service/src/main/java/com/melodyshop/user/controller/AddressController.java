@@ -42,11 +42,11 @@ public class AddressController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteAddress(
+    public ResponseEntity<Void> deleteAddress(
             @RequestHeader("X-User-Id") String userId,
             @PathVariable String id) {
         addressService.deleteAddress(userId, id);
-        return ResponseEntity.ok(ApiResponse.ok("Xóa địa chỉ thành công", null));
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}/default")

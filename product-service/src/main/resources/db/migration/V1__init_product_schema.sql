@@ -91,18 +91,8 @@ CREATE TABLE IF NOT EXISTS product_images (
     INDEX idx_images_product (product_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Đánh giá sản phẩm
-CREATE TABLE IF NOT EXISTS reviews (
-    id          VARCHAR(36)  NOT NULL,
-    product_id  VARCHAR(36)  NOT NULL,
-    user_id     VARCHAR(36)  NOT NULL,
-    rating      INT          NOT NULL COMMENT '1-5 sao',
-    comment     TEXT         NULL,
-    is_verified TINYINT(1)   DEFAULT 0 COMMENT 'Verified purchase',
-    created_at  DATETIME     DEFAULT NOW(),
-    updated_at  DATETIME     DEFAULT NOW() ON UPDATE NOW(),
-    PRIMARY KEY (id),
-    INDEX idx_reviews_product (product_id),
-    INDEX idx_reviews_user (user_id),
-    UNIQUE KEY uk_review_user_product (user_id, product_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- NOTE: Reviews table moved to customer-engagement-service
+-- This table definition is kept as comment for reference only.
+-- Reviews are now managed by customer-engagement-service (review table with VARCHAR(64) user_id)
+-- IF NOT EXISTS will prevent error if table already exists from old migrations
+

@@ -43,6 +43,9 @@ public class PaymentTransaction extends BaseEntity {
     @Column(name = "successful_payment_key", length = 64)
     private String successfulPaymentKey;
 
+    @Version
+    private Long version;
+
     public PaymentTransaction() {
     }
 

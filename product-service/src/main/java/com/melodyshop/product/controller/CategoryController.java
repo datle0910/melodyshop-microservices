@@ -63,11 +63,11 @@ public class CategoryController {
      * Xóa danh mục (soft delete) — ADMIN
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteCategory(
+    public ResponseEntity<Void> deleteCategory(
             @RequestHeader("X-User-Id") String userId,
             @RequestHeader("X-User-Role") String role,
             @PathVariable String id) {
         categoryService.deleteCategory(id);
-        return ResponseEntity.ok(ApiResponse.ok("Xóa danh mục thành công", null));
+        return ResponseEntity.noContent().build();
     }
 }

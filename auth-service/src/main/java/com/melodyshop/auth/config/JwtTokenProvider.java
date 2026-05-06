@@ -11,8 +11,8 @@ import java.util.Date;
 import java.util.Map;
 
 /**
- * JWT Token utility class.
- * TODO: Complete implementation for token generation and validation.
+ * JWT Token utility class for generating and validating JWT tokens.
+ * Handles access token and refresh token generation with configurable expiration.
  */
 @Component
 public class JwtTokenProvider {

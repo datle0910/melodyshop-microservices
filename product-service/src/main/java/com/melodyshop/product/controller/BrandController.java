@@ -63,11 +63,11 @@ public class BrandController {
      * Xóa thương hiệu (soft delete) — ADMIN
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteBrand(
+    public ResponseEntity<Void> deleteBrand(
             @RequestHeader("X-User-Id") String userId,
             @RequestHeader("X-User-Role") String role,
             @PathVariable String id) {
         brandService.deleteBrand(id);
-        return ResponseEntity.ok(ApiResponse.ok("Xóa thương hiệu thành công", null));
+        return ResponseEntity.noContent().build();
     }
 }

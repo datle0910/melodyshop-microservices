@@ -33,6 +33,9 @@ public class Inventory extends BaseEntity {
     @Builder.Default
     private Integer reorderPoint = 10;
 
+    @Version
+    private Long version;
+
     /**
      * Số lượng có thể bán = quantity - reserved_quantity
      */

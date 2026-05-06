@@ -3,6 +3,7 @@ package com.melodyshop.notification.controller;
 import com.melodyshop.notification.dto.EmailRequest;
 import com.melodyshop.notification.dto.OtpRequest;
 import com.melodyshop.notification.service.EmailService;
+import com.melodyshop.common.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,11 +12,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-/**
- * Internal notification endpoints.
- * These are called by other microservices (auth-service, order-service, etc.)
- * via OpenFeign — NOT exposed to the public internet directly.
- */
 @Slf4j
 @RestController
 @RequestMapping("/api/notifications")
@@ -24,65 +20,51 @@ public class NotificationController {
 
     private final EmailService emailService;
 
-    /**
-     * Generic email endpoint: send any template-based email.
-     * POST /api/notifications/email
-     */
     @PostMapping("/email")
-    public ResponseEntity<Map<String, String>> sendEmail(
+    public ResponseEntity<ApiResponse<Map<String, String>>> sendEmail(
             @Valid @RequestBody EmailRequest request) {
 
         emailService.sendEmail(request);
-        return ResponseEntity.ok(Map.of("status", "sent", "to", request.getTo()));
+        return ResponseEntity.ok(ApiResponse.ok("Gửi email thành công",
+                Map.of("to", request.getTo())));
     }
 
-    /**
-     * Send OTP email. Returns the generated OTP so the caller can store/validate it.
-     * POST /api/notifications/otp
-     */
     @PostMapping("/otp")
-    public ResponseEntity<Map<String, String>> sendOtp(
+    public ResponseEntity<ApiResponse<Map<String, String>>> sendOtp(
             @Valid @RequestBody OtpRequest request) {
 
         String otp = emailService.sendOtp(request.getTo(), request.getRecipientName());
-        return ResponseEntity.ok(Map.of(
-                "status", "sent",
-                "to", request.getTo(),
-                "otp", otp  // caller stores this and validates later
-        ));
+        return ResponseEntity.ok(ApiResponse.ok("Gửi mã OTP thành công",
+                Map.of(
+                        "to", request.getTo(),
+                        "otp", otp
+                )));
     }
 
-    /**
-     * Send welcome email after user registration.
-     * POST /api/notifications/welcome
-     */
     @PostMapping("/welcome")
-    public ResponseEntity<Map<String, String>> sendWelcome(
+    public ResponseEntity<ApiResponse<Map<String, String>>> sendWelcome(
             @RequestParam String email,
             @RequestParam String fullName) {
 
         emailService.sendWelcomeEmail(email, fullName);
-        return ResponseEntity.ok(Map.of("status", "sent", "to", email));
+        return ResponseEntity.ok(ApiResponse.ok("Gửi email chào mừng thành công",
+                Map.of("to", email)));
     }
 
-    /**
-     * Send order confirmation email.
-     * POST /api/notifications/order-confirmed
-     */
     @PostMapping("/order-confirmed")
-    public ResponseEntity<Map<String, String>> sendOrderConfirmed(
+    public ResponseEntity<ApiResponse<Map<String, String>>> sendOrderConfirmed(
             @RequestParam String email,
             @RequestParam String fullName,
             @RequestParam String orderCode,
             @RequestParam String totalAmount) {
 
         emailService.sendOrderConfirmationEmail(email, fullName, orderCode, totalAmount);
-        return ResponseEntity.ok(Map.of("status", "sent", "orderCode", orderCode));
+        return ResponseEntity.ok(ApiResponse.ok("Gửi email xác nhận đơn hàng thành công",
+                Map.of("orderCode", orderCode)));
     }
 
-    /** Health / smoke test */
     @GetMapping("/ping")
-    public ResponseEntity<Map<String, String>> ping() {
-        return ResponseEntity.ok(Map.of("service", "notification-service", "status", "UP"));
+    public ResponseEntity<ApiResponse<String>> ping() {
+        return ResponseEntity.ok(ApiResponse.ok("Notification service đang hoạt động"));
     }
 }

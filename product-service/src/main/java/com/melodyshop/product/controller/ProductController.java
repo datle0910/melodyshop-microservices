@@ -4,7 +4,6 @@ import com.melodyshop.common.dto.ApiResponse;
 import com.melodyshop.common.dto.PageResponse;
 import com.melodyshop.product.dto.*;
 import com.melodyshop.product.service.ProductService;
-import com.melodyshop.product.service.ReviewService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -22,7 +21,6 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService productService;
-    private final ReviewService reviewService;
 
     /**
      * Danh sách SP với phân trang, lọc, sắp xếp — Public
@@ -110,48 +108,11 @@ public class ProductController {
      * Soft delete SP — ADMIN
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteProduct(
+    public ResponseEntity<Void> deleteProduct(
             @RequestHeader("X-User-Id") String userId,
             @RequestHeader("X-User-Role") String role,
             @PathVariable String id) {
         productService.deleteProduct(id);
-        return ResponseEntity.ok(ApiResponse.ok("Xóa sản phẩm thành công", null));
-    }
-
-    // ==================== Reviews ====================
-
-    /**
-     * Danh sách đánh giá của SP — Public
-     */
-    @GetMapping("/{id}/reviews")
-    public ResponseEntity<ApiResponse<PageResponse<ReviewDTO>>> getReviews(
-            @PathVariable String id,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-
-        Page<ReviewDTO> result = reviewService.getReviewsByProductId(id, PageRequest.of(page, size));
-
-        PageResponse<ReviewDTO> pageResponse = PageResponse.<ReviewDTO>builder()
-                .content(result.getContent())
-                .page(result.getNumber())
-                .size(result.getSize())
-                .totalElements(result.getTotalElements())
-                .totalPages(result.getTotalPages())
-                .last(result.isLast())
-                .build();
-
-        return ResponseEntity.ok(ApiResponse.ok(pageResponse));
-    }
-
-    /**
-     * Viết đánh giá SP — CUSTOMER (Bearer Token required)
-     */
-    @PostMapping("/{id}/reviews")
-    public ResponseEntity<ApiResponse<ReviewDTO>> createReview(
-            @RequestHeader("X-User-Id") String userId,
-            @PathVariable String id,
-            @Valid @RequestBody ReviewDTO dto) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.created(reviewService.createReview(id, userId, dto)));
+        return ResponseEntity.noContent().build();
     }
 }

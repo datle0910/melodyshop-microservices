@@ -6,6 +6,7 @@ import com.melodyshop.search.dto.ProductSearchResult;
 import com.melodyshop.search.service.ProductSearchService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -78,8 +79,8 @@ public class SearchController {
      * Xóa sản phẩm khỏi index — Internal
      */
     @DeleteMapping("/index/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteFromIndex(@PathVariable String id) {
+    public ResponseEntity<Void> deleteFromIndex(@PathVariable String id) {
         searchService.deleteProduct(id);
-        return ResponseEntity.ok(ApiResponse.ok("Đã xóa sản phẩm khỏi index", null));
+        return ResponseEntity.noContent().build();
     }
 }

@@ -20,4 +20,8 @@ public class CreatePaymentRequest {
 
     @NotNull
     private PaymentMethod paymentMethod;
+
+    private String provider;
+
+    private String currency;
 }

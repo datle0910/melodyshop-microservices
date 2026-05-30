@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class CreatePaymentResponse {
     private String paymentId;
-    private String checkoutUrl;
+    private String redirectUrl;
     private String qrCode;
     private String expiresAt;
 }

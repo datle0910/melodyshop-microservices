@@ -4,6 +4,7 @@ import com.melodyshop.common.dto.ApiResponse;
 import com.melodyshop.inventory.dto.InventoryActionRequest;
 import com.melodyshop.inventory.dto.InventoryDTO;
 import com.melodyshop.inventory.dto.StockCheckResponse;
+import com.melodyshop.inventory.dto.StockInfoResponse;
 import com.melodyshop.inventory.service.InventoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -63,6 +64,16 @@ public class InventoryController {
     }
 
     /**
+     * Hoàn lại stock khi đơn bị hủy / hoàn tiền — Internal
+     */
+    @PutMapping("/restore")
+    public ResponseEntity<ApiResponse<InventoryDTO>> restoreStock(
+            @Valid @RequestBody InventoryActionRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok("Hoàn kho thành công",
+                inventoryService.restoreStock(request)));
+    }
+
+    /**
      * Khởi tạo kho cho sản phẩm mới — Internal call từ Product Service.
      */
     @PostMapping("/init")
@@ -72,5 +83,13 @@ public class InventoryController {
             @RequestParam String sku) {
         inventoryService.initInventory(productId, variantId, sku);
         return ResponseEntity.ok(ApiResponse.ok("Khởi tạo kho thành công", null));
+    }
+
+    /**
+     * Lấy thông tin tồn kho theo SKU — Internal call từ Product Service.
+     */
+    @GetMapping("/stock")
+    public ResponseEntity<ApiResponse<StockInfoResponse>> getStockInfo(@RequestParam String sku) {
+        return ResponseEntity.ok(ApiResponse.ok(inventoryService.getStockInfo(sku)));
     }
 }

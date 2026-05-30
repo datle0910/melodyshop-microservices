@@ -24,9 +24,12 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/refresh").permitAll()
+                .requestMatchers("/api/auth/register", "/api/auth/send-verification", "/api/auth/login", "/api/auth/refresh",
+                        "/api/auth/revoke-tokens").permitAll()
                 .requestMatchers("/api/auth/v3/api-docs/**", "/api/auth/swagger-ui/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
+                // Face authentication - all endpoints permitted (Gateway handles JWT validation)
+                .requestMatchers("/api/auth/face/**").permitAll()
                 .anyRequest().permitAll() // JWT validation is handled by API Gateway
             );
         return http.build();

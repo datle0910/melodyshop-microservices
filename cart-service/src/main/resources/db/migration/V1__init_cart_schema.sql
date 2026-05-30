@@ -3,7 +3,7 @@
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS carts (
-    id CHAR(36) NOT NULL PRIMARY KEY,
+    id VARCHAR(36) NOT NULL PRIMARY KEY,
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6),
     user_id VARCHAR(36) NOT NULL UNIQUE,
@@ -12,10 +12,10 @@ CREATE TABLE IF NOT EXISTS carts (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS cart_items (
-    id CHAR(36) NOT NULL PRIMARY KEY,
+    id VARCHAR(36) NOT NULL PRIMARY KEY,
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6),
-    cart_id CHAR(36) NOT NULL,
+    cart_id VARCHAR(36) NOT NULL,
     product_id VARCHAR(36) NOT NULL,
     product_name VARCHAR(255) NOT NULL,
     product_image VARCHAR(500),

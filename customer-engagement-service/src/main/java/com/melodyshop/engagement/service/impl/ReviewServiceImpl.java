@@ -57,6 +57,24 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     @Override
+    @Transactional
+    public ReviewResponse updateReview(String reviewId, String userId, com.melodyshop.engagement.dto.UpdateReviewRequest request) {
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đánh giá"));
+        
+        if (!review.getUserId().equals(userId.trim())) {
+            throw new IllegalArgumentException("Không có quyền chỉnh sửa đánh giá này");
+        }
+
+        review.setRating(request.getRating());
+        review.setComment(request.getComment() == null ? null : request.getComment().trim());
+        review = reviewRepository.save(review);
+
+        LOGGER.info("Updated review id={} userId={} rating={}", review.getId(), userId, review.getRating());
+        return toResponse(review);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public ProductReviewsResponse getReviewsByProduct(String productId) {
         String normalizedProductId = productId.trim();

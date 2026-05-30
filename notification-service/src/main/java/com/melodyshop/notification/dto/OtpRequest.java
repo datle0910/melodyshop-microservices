@@ -17,7 +17,6 @@ public class OtpRequest {
     @NotBlank(message = "Recipient email is required")
     private String to;
 
-    @NotBlank(message = "Recipient name is required")
     private String recipientName;
 
     /**

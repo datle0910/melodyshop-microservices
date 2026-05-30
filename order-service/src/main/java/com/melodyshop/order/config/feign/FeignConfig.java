@@ -1,18 +1,16 @@
 package com.melodyshop.order.config.feign;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.melodyshop.common.exception.FeignClientException;
 import feign.Logger;
 import feign.Request;
 import feign.Response;
 import feign.codec.ErrorDecoder;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cloud.openfeign.FeignClientProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
 @Configuration
 @Slf4j
@@ -57,19 +55,6 @@ public class FeignConfig {
                     response.status(),
                     "Feign client error: " + methodKey + " returned status " + response.status()
             );
-        }
-    }
-
-    static class FeignClientException extends RuntimeException {
-        private final int status;
-
-        public FeignClientException(int status, String message) {
-            super(message);
-            this.status = status;
-        }
-
-        public int getStatus() {
-            return status;
         }
     }
 }

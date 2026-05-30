@@ -3,6 +3,7 @@ package com.melodyshop.product.controller;
 import com.melodyshop.common.dto.ApiResponse;
 import com.melodyshop.common.dto.PageResponse;
 import com.melodyshop.product.dto.*;
+import com.melodyshop.product.exception.ProductInOrderException;
 import com.melodyshop.product.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

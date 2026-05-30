@@ -22,4 +22,8 @@ public class ProductVariantDTO {
     private String color;
     private String size;
     private Boolean isActive;
+
+    private Integer stockQuantity;
+    private Integer availableQuantity;
+    private Boolean lowStock;
 }

@@ -43,6 +43,9 @@ public class PaymentTransaction extends BaseEntity {
     @Column(name = "successful_payment_key", length = 64)
     private String successfulPaymentKey;
 
+    @Column(length = 20)
+    private String provider;
+
     @Version
     private Long version;
 
@@ -129,6 +132,14 @@ public class PaymentTransaction extends BaseEntity {
 
     public void setSuccessfulPaymentKey(String successfulPaymentKey) {
         this.successfulPaymentKey = successfulPaymentKey;
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
     }
 
     public void transitionTo(PaymentStatus newStatus) {

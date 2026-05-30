@@ -21,4 +21,8 @@ public class RegisterRequest {
 
     @Size(max = 20)
     private String phone;
+
+    @NotBlank(message = "Mã xác nhận không được để trống")
+    @Size(min = 6, max = 6, message = "Mã xác nhận gồm 6 chữ số")
+    private String verificationCode;
 }

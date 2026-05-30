@@ -26,4 +26,6 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
            "(LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            "LOWER(p.shortDesc) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<Product> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
+
+    boolean existsByCategoryId(String categoryId);
 }

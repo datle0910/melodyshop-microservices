@@ -43,4 +43,10 @@ public class InventoryClientFallback implements InventoryClient {
         log.warn("Fallback activated for unreserveStock - sku: {}", request != null ? request.getSku() : "null");
         return ApiResponse.error("Inventory service temporarily unavailable");
     }
+
+    @Override
+    public ApiResponse<Void> restoreStock(InventoryActionRequest request) {
+        log.warn("Fallback activated for restoreStock - sku: {}", request != null ? request.getSku() : "null");
+        return ApiResponse.error("Inventory service temporarily unavailable");
+    }
 }

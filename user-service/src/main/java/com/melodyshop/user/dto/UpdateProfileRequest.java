@@ -1,5 +1,6 @@
 package com.melodyshop.user.dto;
 
+import com.melodyshop.common.validation.NullablePhone;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -10,7 +11,7 @@ public class UpdateProfileRequest {
     @Size(max = 150)
     private String fullName;
 
-    @Size(max = 20)
+    @NullablePhone
     private String phone;
 
     @Size(max = 500)

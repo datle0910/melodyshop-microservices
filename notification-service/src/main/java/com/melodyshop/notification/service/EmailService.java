@@ -11,9 +11,10 @@ public interface EmailService {
 
     /**
      * Generate a 6-digit OTP and send it to the given email.
-     * @return the generated OTP (so caller can store/validate it)
+     * @param externalOtp if provided, uses this OTP instead of generating a new one
+     * @return the OTP that was sent
      */
-    String sendOtp(String toEmail, String recipientName);
+    String sendOtp(String toEmail, String recipientName, String externalOtp);
 
     /**
      * Send welcome email after successful registration.

@@ -3,6 +3,7 @@ package com.melodyshop.notification.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.melodyshop.notification.dto.EmailRequest;
 import com.melodyshop.notification.dto.OtpRequest;
+import com.melodyshop.notification.dto.WelcomeRequest;
 import com.melodyshop.notification.service.EmailService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -127,7 +128,7 @@ class NotificationControllerTest {
     @Test
     @DisplayName("POST /otp with valid request → 200 OK, returns 6-digit OTP")
     void sendOtp_withValidRequest_returns200WithOtp() throws Exception {
-        when(emailService.sendOtp(anyString(), anyString())).thenReturn("482931");
+        when(emailService.sendOtp(anyString(), anyString(), any())).thenReturn("482931");
 
         OtpRequest request = OtpRequest.builder()
                 .to("user@test.com")
@@ -143,7 +144,7 @@ class NotificationControllerTest {
                 .andExpect(jsonPath("$.data.otp").value("482931"))
                 .andExpect(jsonPath("$.data.to").value("user@test.com"));
 
-        verify(emailService).sendOtp("user@test.com", "Nguyen Van A");
+        verify(emailService).sendOtp("user@test.com", "Nguyen Van A", null);
     }
 
     @Test
@@ -171,9 +172,14 @@ class NotificationControllerTest {
     void sendWelcome_withValidParams_returns200() throws Exception {
         doNothing().when(emailService).sendWelcomeEmail(anyString(), anyString());
 
+        WelcomeRequest request = WelcomeRequest.builder()
+                .email("user@test.com")
+                .fullName("Nguyen Van A")
+                .build();
+
         mockMvc.perform(post("/api/notifications/welcome")
-                        .param("email", "user@test.com")
-                        .param("fullName", "Nguyen Van A"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.status").value("sent"))

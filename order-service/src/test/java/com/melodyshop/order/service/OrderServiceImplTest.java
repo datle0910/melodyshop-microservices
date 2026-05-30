@@ -124,7 +124,7 @@ class OrderServiceImplTest {
 
     @Test
     void createOrder_withOnlinePayment_shouldThrowWhenPaymentFails() {
-        createOrderRequest.setPaymentMethod(PaymentMethod.CREDIT_CARD);
+        createOrderRequest.setPaymentMethod(PaymentMethod.E_WALLET);
         createOrderRequest.getItems().get(0).setSku("SKU-001");
 
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> {

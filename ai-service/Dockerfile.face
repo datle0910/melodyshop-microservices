@@ -1,0 +1,35 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies for dlib/face_recognition
+RUN apt-get update && apt-get install -y \
+    cmake \
+    build-essential \
+    libopenblas-dev \
+    liblapack-dev \
+    libpng-dev \
+    libjpeg-dev \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first (for layer caching)
+COPY face_service/requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY face_service/ .
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser && mkdir -p /home/appuser && chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 8093
+
+ENV PORT=8093
+ENV HOST=0.0.0.0
+
+CMD ["python", "main.py"]

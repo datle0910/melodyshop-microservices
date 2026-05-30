@@ -64,7 +64,7 @@ class EmailServiceImplTest {
         @Test
         @DisplayName("Should return a 6-digit numeric OTP")
         void shouldReturn6DigitNumericOtp() {
-            String otp = emailService.sendOtp("user@test.com", "Nguyen Van A");
+            String otp = emailService.sendOtp("user@test.com", "Nguyen Van A", null);
 
             assertThat(otp).isNotNull()
                     .hasSize(6)
@@ -76,7 +76,7 @@ class EmailServiceImplTest {
         void shouldCallSendEmailWithOtpTemplate() {
             ArgumentCaptor<EmailRequest> captor = ArgumentCaptor.forClass(EmailRequest.class);
 
-            emailService.sendOtp("user@test.com", "Nguyen Van A");
+            emailService.sendOtp("user@test.com", "Nguyen Van A", null);
 
             verify(emailService).sendEmail(captor.capture());
             EmailRequest captured = captor.getValue();
@@ -93,7 +93,7 @@ class EmailServiceImplTest {
         @DisplayName("Should generate different OTPs across multiple calls (randomness)")
         void shouldProduceDifferentOtpsAcrossCalls() {
             Set<String> otps = IntStream.range(0, 20)
-                    .mapToObj(i -> emailService.sendOtp("user@test.com", "User " + i))
+                    .mapToObj(i -> emailService.sendOtp("user@test.com", "User " + i, null))
                     .collect(Collectors.toSet());
 
             // With 20 calls generating 6-digit OTPs, at least 5 should be unique

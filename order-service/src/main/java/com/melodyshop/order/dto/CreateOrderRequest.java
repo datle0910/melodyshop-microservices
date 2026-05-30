@@ -29,8 +29,9 @@ public class CreateOrderRequest {
 
     private String orderNote;
 
-    @NotNull(message = "Phuong thuc thanh toan khong duoc de trong")
     private PaymentMethod paymentMethod;
+
+    private String provider;
 
     @NotEmpty(message = "Danh sach san pham khong duoc de trong")
     @Valid

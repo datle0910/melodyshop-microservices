@@ -3,6 +3,7 @@ package com.melodyshop.cart.controller;
 import com.melodyshop.cart.dto.AddToCartRequest;
 import com.melodyshop.cart.dto.CartDTO;
 import com.melodyshop.cart.dto.CartItemDTO;
+import com.melodyshop.cart.dto.MergeCartRequest;
 import com.melodyshop.cart.dto.UpdateCartItemRequest;
 import com.melodyshop.cart.service.CartService;
 import com.melodyshop.common.dto.ApiResponse;
@@ -62,5 +63,13 @@ public class CartController {
             @RequestHeader("X-User-Id") String userId) {
         cartService.clearCart(userId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/merge")
+    public ResponseEntity<ApiResponse<CartDTO>> mergeCart(
+            @RequestHeader("X-User-Id") String userId,
+            @Valid @RequestBody MergeCartRequest request) {
+        CartDTO cart = cartService.mergeCart(userId, request.getItems());
+        return ResponseEntity.ok(ApiResponse.ok("Gộp giỏ hàng thành công", cart));
     }
 }

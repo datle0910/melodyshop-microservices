@@ -4,6 +4,7 @@ import com.melodyshop.common.dto.ApiResponse;
 import com.melodyshop.common.dto.PageResponse;
 import com.melodyshop.common.exception.BadRequestException;
 import com.melodyshop.common.exception.ResourceNotFoundException;
+import com.melodyshop.order.client.CartClient;
 import com.melodyshop.order.client.InventoryClient;
 import com.melodyshop.order.client.NotificationClient;
 import com.melodyshop.order.client.PaymentClient;
@@ -41,6 +42,7 @@ public class OrderServiceImpl implements OrderService {
     private final InventoryClient inventoryClient;
     private final PaymentClient paymentClient;
     private final NotificationClient notificationClient;
+    private final CartClient cartClient;
 
     private static final BigDecimal DEFAULT_SHIPPING_FEE = new BigDecimal("50000.00");
 
@@ -68,6 +70,24 @@ public class OrderServiceImpl implements OrderService {
         List<OrderItem> orderItems = new ArrayList<>();
 
         for (OrderItemRequest itemReq : request.getItems()) {
+            // Check stock availability before creating order
+            if (itemReq.getSku() != null && !itemReq.getSku().isBlank()) {
+                try {
+                    ApiResponse<StockCheckResponse> checkResp = inventoryClient.checkStock(
+                            itemReq.getSku(), itemReq.getQuantity());
+                    if (checkResp != null && checkResp.getData() != null
+                            && !checkResp.getData().getInStock()) {
+                        throw new BadRequestException(String.format(
+                                "Sản phẩm \"%s\" đã hết hàng hoặc không đủ số lượng (SKU: %s). Vui lòng giảm số lượng hoặc chọn sản phẩm khác.",
+                                itemReq.getProductName(), itemReq.getSku()));
+                    }
+                } catch (BadRequestException e) {
+                    throw e;
+                } catch (Exception e) {
+                    log.warn("Stock check failed for SKU {}: {}", itemReq.getSku(), e.getMessage());
+                }
+            }
+
             BigDecimal itemTotal = itemReq.getUnitPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
 
             OrderItem item = OrderItem.builder()
@@ -93,16 +113,28 @@ public class OrderServiceImpl implements OrderService {
 
         order = orderRepository.save(order);
 
-        if (request.getPaymentMethod() != PaymentMethod.COD) {
+        if (request.getPaymentMethod() == PaymentMethod.CREDIT_CARD) {
+            // DEMO: Simulate successful payment for Credit Card
+            order.setIsPaid(true);
+            order.setPaidAt(LocalDateTime.now());
+            order.setStatus(OrderStatus.CONFIRMED);
+            order.setStockDeducted(true);
+            order.setPaymentId("DUMMY_CC_" + System.currentTimeMillis());
+            orderRepository.save(order);
+            deductInventory(order);
+        } else if (request.getPaymentMethod() != PaymentMethod.COD) {
             try {
                 CreatePaymentRequest paymentReq = new CreatePaymentRequest();
                 paymentReq.setOrderId(order.getId());
                 paymentReq.setOrderNumber(order.getOrderNumber());
                 paymentReq.setAmount(order.getTotalAmount());
                 paymentReq.setPaymentMethod(request.getPaymentMethod());
+                paymentReq.setProvider(request.getProvider());
+                paymentReq.setCurrency("VND");
                 ApiResponse<CreatePaymentResponse> paymentResp = paymentClient.createPayment(paymentReq);
                 if (paymentResp != null && paymentResp.isSuccess() && paymentResp.getData() != null) {
                     order.setPaymentId(paymentResp.getData().getPaymentId());
+                    order.setPaymentUrl(paymentResp.getData().getRedirectUrl());
                     orderRepository.save(order);
                 } else {
                     String msg = paymentResp != null ? paymentResp.getMessage() : "Tạo thanh toán thất bại";
@@ -119,7 +151,125 @@ public class OrderServiceImpl implements OrderService {
 
         createStatusHistory(order.getId(), null, OrderStatus.PENDING.name(), "Don hang duoc tao", userId);
 
+        // Clear the user's cart after successful order creation
+        try {
+            cartClient.clearCart(userId);
+            log.info("Cart cleared for user {} after order {}", userId, order.getOrderNumber());
+        } catch (Exception e) {
+            log.error("Failed to clear cart for user {}: {}", userId, e.getMessage());
+        }
+
+        // Send order confirmation email asynchronously (after order is committed)
+        sendOrderConfirmationEmailAsync(order);
+
+        // Reserve stock
+        reserveInventory(order);
+
         log.info("Created order {} for user {}", order.getOrderNumber(), userId);
+        return toDTO(order);
+    }
+
+    @Override
+    @Transactional
+    public OrderDTO createGuestOrder(GuestCreateOrderRequest request) {
+        Order order = Order.builder()
+                .userId(null)
+                .shippingFullName(request.getShippingFullName())
+                .shippingPhone(request.getShippingPhone())
+                .shippingAddress(request.getShippingAddress())
+                .shippingCity(request.getShippingCity() != null ? request.getShippingCity() : "")
+                .shippingEmail(request.getShippingEmail())
+                .shippingPostalCode(request.getShippingPostalCode())
+                .orderNote(request.getOrderNote())
+                .paymentMethod(request.getPaymentMethod())
+                .status(OrderStatus.PENDING)
+                .shippingFee(DEFAULT_SHIPPING_FEE)
+                .taxAmount(BigDecimal.ZERO)
+                .discountAmount(BigDecimal.ZERO)
+                .isPaid(false)
+                .build();
+
+        BigDecimal subtotal = BigDecimal.ZERO;
+        List<OrderItem> orderItems = new ArrayList<>();
+
+        for (OrderItemRequest itemReq : request.getItems()) {
+            // Check stock availability before creating guest order
+            if (itemReq.getSku() != null && !itemReq.getSku().isBlank()) {
+                try {
+                    ApiResponse<StockCheckResponse> checkResp = inventoryClient.checkStock(
+                            itemReq.getSku(), itemReq.getQuantity());
+                    if (checkResp != null && checkResp.getData() != null
+                            && !checkResp.getData().getInStock()) {
+                        throw new BadRequestException(String.format(
+                                "Sản phẩm \"%s\" đã hết hàng hoặc không đủ số lượng (SKU: %s). Vui lòng giảm số lượng hoặc chọn sản phẩm khác.",
+                                itemReq.getProductName(), itemReq.getSku()));
+                    }
+                } catch (BadRequestException e) {
+                    throw e;
+                } catch (Exception e) {
+                    log.warn("Stock check failed for SKU {}: {}", itemReq.getSku(), e.getMessage());
+                }
+            }
+
+            BigDecimal itemTotal = itemReq.getUnitPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+            OrderItem item = OrderItem.builder()
+                    .productId(itemReq.getProductId())
+                    .productName(itemReq.getProductName())
+                    .productImage(itemReq.getProductImage())
+                    .variantId(itemReq.getVariantId())
+                    .variantName(itemReq.getVariantName())
+                    .sku(itemReq.getSku())
+                    .quantity(itemReq.getQuantity())
+                    .unitPrice(itemReq.getUnitPrice())
+                    .totalPrice(itemTotal)
+                    .build();
+            item.setOrder(order);
+            orderItems.add(item);
+            subtotal = subtotal.add(itemTotal);
+        }
+
+        order.setItems(orderItems);
+        order.setSubtotal(subtotal);
+        order.setTotalAmount(subtotal.add(DEFAULT_SHIPPING_FEE));
+
+        order = orderRepository.save(order);
+
+        if (request.getPaymentMethod() == PaymentMethod.CREDIT_CARD) {
+            // DEMO: Simulate successful payment for Credit Card
+            order.setIsPaid(true);
+            order.setPaidAt(LocalDateTime.now());
+            order.setStatus(OrderStatus.CONFIRMED);
+            order.setStockDeducted(true);
+            order.setPaymentId("DUMMY_CC_GUEST_" + System.currentTimeMillis());
+            orderRepository.save(order);
+            deductInventory(order);
+        } else if (request.getPaymentMethod() != PaymentMethod.COD) {
+            try {
+                CreatePaymentRequest paymentReq = new CreatePaymentRequest();
+                paymentReq.setOrderId(order.getId());
+                paymentReq.setOrderNumber(order.getOrderNumber());
+                paymentReq.setAmount(order.getTotalAmount());
+                paymentReq.setPaymentMethod(request.getPaymentMethod());
+                ApiResponse<CreatePaymentResponse> paymentResp = paymentClient.createPayment(paymentReq);
+                if (paymentResp != null && paymentResp.isSuccess() && paymentResp.getData() != null) {
+                    order.setPaymentId(paymentResp.getData().getPaymentId());
+                    order.setPaymentUrl(paymentResp.getData().getRedirectUrl());
+                    orderRepository.save(order);
+                }
+            } catch (BadRequestException e) {
+                throw e;
+            } catch (Exception e) {
+                log.error("Failed to create payment for guest order {}: {}", order.getOrderNumber(), e.getMessage());
+                throw new BadRequestException("Khong the tao thanh toan. Vui long thu lai sau.");
+            }
+        }
+
+        createStatusHistory(order.getId(), null, OrderStatus.PENDING.name(), "Don hang duoc tao (khach vang lai)", "GUEST");
+
+        // Send order confirmation email asynchronously (after order is committed)
+        sendOrderConfirmationEmailAsync(order);
+
+        log.info("Created guest order {}", order.getOrderNumber());
         return toDTO(order);
     }
 
@@ -205,8 +355,11 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(OrderStatus.CANCELLED);
         order = orderRepository.save(order);
 
-        if (oldStatus == OrderStatus.CONFIRMED || oldStatus == OrderStatus.PROCESSING) {
-            unreserveInventory(order);
+        // Hoàn lại stock nếu đã bị trừ
+        if (Boolean.TRUE.equals(order.getStockDeducted())) {
+            restoreInventory(order);
+            order.setStockDeducted(false);
+            orderRepository.save(order);
         }
 
         createStatusHistory(orderId, oldStatus.name(), OrderStatus.CANCELLED.name(), reason, userId);
@@ -239,7 +392,10 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(OrderStatus.CONFIRMED);
         orderRepository.save(order);
 
-        reserveInventory(order);
+        // TRỪ stock ngay khi xác nhận đơn hàng (đặt hàng thành công)
+        deductInventory(order);
+        order.setStockDeducted(true);
+        orderRepository.save(order);
         createStatusHistory(orderId, OrderStatus.PENDING.name(), OrderStatus.CONFIRMED.name(), "Thanh toan thanh cong", null);
 
         try {
@@ -261,6 +417,68 @@ public class OrderServiceImpl implements OrderService {
         log.info("Payment success for order {}, inventory reserved", order.getOrderNumber());
     }
 
+    private void sendOrderConfirmationEmailAsync(Order order) {
+        try {
+            String customerEmail = order.getShippingEmail();
+            if (customerEmail == null || customerEmail.isBlank()) {
+                log.warn("No shipping email for order {}, skipping notification", order.getOrderNumber());
+                return;
+            }
+            notificationClient.sendOrderConfirmation(
+                    customerEmail,
+                    order.getOrderNumber(),
+                    order.getTotalAmount().toString(),
+                    order.getShippingFullName());
+            log.info("Order confirmation email sent for order {}", order.getOrderNumber());
+        } catch (Exception e) {
+            log.error("Failed to send order confirmation email for {}: {}",
+                    order.getOrderNumber(), e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public OrderItemDTO updateOrderItemQuantity(String orderId, String itemId, int newQuantity) {
+        Order order = orderRepository.findByIdWithItems(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+
+        if (order.getStatus() == OrderStatus.DELIVERED || order.getStatus() == OrderStatus.CANCELLED) {
+            throw new BadRequestException("Khong the cap nhat san pham khi don hang da hoan thanh hoac da huy");
+        }
+
+        OrderItem item = order.getItems().stream()
+                .filter(i -> i.getId().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("OrderItem", "id", itemId));
+
+        BigDecimal oldTotal = item.getTotalPrice();
+        item.setQuantity(newQuantity);
+        item.setTotalPrice(item.getUnitPrice().multiply(BigDecimal.valueOf(newQuantity)));
+        orderItemRepository.save(item);
+
+        // Recalculate order totals
+        BigDecimal newSubtotal = order.getItems().stream()
+                .map(OrderItem::getTotalPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        order.setSubtotal(newSubtotal);
+        order.setTotalAmount(newSubtotal.add(order.getShippingFee()).subtract(order.getDiscountAmount()));
+        orderRepository.save(order);
+
+        log.info("Order item {} quantity updated from {} to {} for order {}",
+                itemId, oldTotal, item.getTotalPrice(), order.getOrderNumber());
+        return toItemDTO(item);
+    }
+
+    @Override
+    public boolean hasOrdersByUserId(String userId) {
+        return orderRepository.existsByUserId(userId);
+    }
+
+    @Override
+    public boolean hasOrdersByProductId(String productId) {
+        return orderItemRepository.existsByProductId(productId);
+    }
+
     private void validateStatusTransition(OrderStatus from, OrderStatus to) {
         boolean valid = switch (to) {
             case CONFIRMED -> from == OrderStatus.PENDING || from == OrderStatus.PROCESSING;
@@ -279,18 +497,32 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private void handleStatusSideEffects(Order order, OrderStatus oldStatus, OrderStatus newStatus) {
+        // CONFIRMED: stock đã được trừ trong handlePaymentSuccess (khi thanh toán online)
+        // Hoặc trừ ở đây nếu admin xác nhận đơn COD (chưa thanh toán online)
         if (newStatus == OrderStatus.CONFIRMED && oldStatus == OrderStatus.PENDING) {
-            reserveInventory(order);
-        }
-
-        if (newStatus == OrderStatus.CANCELLED) {
-            if (oldStatus == OrderStatus.CONFIRMED || oldStatus == OrderStatus.PROCESSING) {
-                unreserveInventory(order);
+            if (!Boolean.TRUE.equals(order.getStockDeducted())) {
+                deductInventory(order);
+                order.setStockDeducted(true);
+                orderRepository.save(order);
             }
         }
 
-        if (newStatus == OrderStatus.DELIVERED) {
-            deductInventory(order);
+        // CANCELLED: hoàn lại stock nếu đã trừ
+        if (newStatus == OrderStatus.CANCELLED) {
+            if (Boolean.TRUE.equals(order.getStockDeducted())) {
+                restoreInventory(order);
+                order.setStockDeducted(false);
+                orderRepository.save(order);
+            }
+        }
+
+        // REFUNDED: hoàn lại stock (khách đã nhận hàng nhưng được hoàn tiền)
+        if (newStatus == OrderStatus.REFUNDED) {
+            if (Boolean.TRUE.equals(order.getStockDeducted())) {
+                restoreInventory(order);
+                order.setStockDeducted(false);
+                orderRepository.save(order);
+            }
         }
     }
 
@@ -336,10 +568,27 @@ public class OrderServiceImpl implements OrderService {
                 req.setSku(item.getSku());
                 req.setQuantity(item.getQuantity());
                 req.setOrderId(order.getId());
-                req.setNote("Deduct for delivered order " + order.getOrderNumber());
+                req.setNote("Deduct for order " + order.getOrderNumber());
                 inventoryClient.deductStock(req);
             } catch (Exception e) {
                 log.error("Failed to deduct inventory for SKU {}: {}",
+                        item.getSku(), e.getMessage());
+            }
+        }
+    }
+
+    private void restoreInventory(Order order) {
+        for (OrderItem item : order.getItems()) {
+            if (item.getSku() == null) continue;
+            try {
+                InventoryActionRequest req = new InventoryActionRequest();
+                req.setSku(item.getSku());
+                req.setQuantity(item.getQuantity());
+                req.setOrderId(order.getId());
+                req.setNote("Restore stock for cancelled/refunded order " + order.getOrderNumber());
+                inventoryClient.restoreStock(req);
+            } catch (Exception e) {
+                log.error("Failed to restore inventory for SKU {}: {}",
                         item.getSku(), e.getMessage());
             }
         }
@@ -380,8 +629,10 @@ public class OrderServiceImpl implements OrderService {
                 .totalAmount(order.getTotalAmount())
                 .paymentMethod(order.getPaymentMethod())
                 .paymentId(order.getPaymentId())
+                .paymentUrl(order.getPaymentUrl())
                 .isPaid(order.getIsPaid())
                 .paidAt(order.getPaidAt())
+                .stockDeducted(order.getStockDeducted())
                 .items(itemDTOs)
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
@@ -424,5 +675,25 @@ public class OrderServiceImpl implements OrderService {
                 .totalPages(page.getTotalPages())
                 .last(page.isLast())
                 .build();
+    }
+    @Override
+    @Transactional
+    public OrderDTO updatePaymentStatus(String orderId, String changedBy) {
+        Order order = orderRepository.findByIdWithItems(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+
+        if (order.getIsPaid()) {
+            throw new BadRequestException("Đơn hàng này đã được thanh toán");
+        }
+
+        order.setIsPaid(true);
+        order.setPaidAt(LocalDateTime.now());
+        
+        order = orderRepository.save(order);
+
+        createStatusHistory(orderId, order.getStatus().name(), order.getStatus().name(), "Cập nhật thanh toán thủ công", changedBy);
+
+        log.info("Order {} payment status marked as paid by {}", order.getOrderNumber(), changedBy);
+        return toDTO(order);
     }
 }

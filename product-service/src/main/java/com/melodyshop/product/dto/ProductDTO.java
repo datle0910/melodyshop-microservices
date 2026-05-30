@@ -36,6 +36,10 @@ public class ProductDTO {
     private List<ProductVariantDTO> variants;
     private List<ProductImageDTO> images;
 
+    private Integer stockQuantity;
+    private Integer availableQuantity;
+    private Boolean lowStock;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class UserProfileDTO {
+    private String email;
     private String id;
     private String fullName;
     private String phone;

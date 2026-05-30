@@ -37,8 +37,11 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
      */
     private static final List<String> PUBLIC_ENDPOINTS = List.of(
             "/api/auth/login",
+            "/api/auth/face/login",
             "/api/auth/register",
+            "/api/auth/send-verification",
             "/api/auth/refresh",
+            "/api/auth/revoke-tokens",
             "/api/payments/webhook",
             "/api/payments/v3/api-docs",
             "/api/payments/swagger-ui",
@@ -47,6 +50,9 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/products",     // Allow public catalog browsing
             "/api/categories",   // Allow category listing
             "/api/brands",       // Allow brand listing
+            "/api/orders/has-orders",       // Internal service check
+            "/api/orders/has-product-orders", // Internal service check
+            "/api/media/proxy",              // Proxy image requests to bypass browser tracking prevention
             "/eureka"
     );
 
@@ -74,6 +80,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                     .header("X-User-Id", claims.getSubject())
                     .header("X-User-Email", claims.get("email", String.class))
                     .header("X-User-FullName", claims.get("fullName", String.class))
+                    .header("X-User-Phone", claims.get("phone", String.class))
                     .header("X-User-Role", claims.get("role", String.class))
                     .build();
 

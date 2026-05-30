@@ -5,6 +5,7 @@ import com.melodyshop.common.exception.ResourceNotFoundException;
 import com.melodyshop.product.dto.CategoryDTO;
 import com.melodyshop.product.entity.Category;
 import com.melodyshop.product.repository.CategoryRepository;
+import com.melodyshop.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,7 @@ import java.util.stream.Collectors;
 public class CategoryService {
 
     private final CategoryRepository categoryRepository;
+    private final ProductRepository productRepository;
 
     /**
      * Lấy danh sách category dạng cây (tree).
@@ -77,6 +79,12 @@ public class CategoryService {
     public void deleteCategory(String id) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Danh mục", "id", id));
+
+        // Check if category has any products
+        if (productRepository.existsByCategoryId(id)) {
+            throw new BadRequestException("Khong the xoa danh muc: danh muc da co san pham");
+        }
+
         // Soft delete
         category.setIsActive(false);
         categoryRepository.save(category);

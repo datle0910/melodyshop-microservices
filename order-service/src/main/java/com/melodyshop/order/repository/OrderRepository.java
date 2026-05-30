@@ -37,4 +37,5 @@ public interface OrderRepository extends JpaRepository<Order, String> {
     long countOrdersSince(@Param("startDate") LocalDateTime startDate);
 
     List<Order> findByUserId(String userId);
+    boolean existsByUserId(String userId);
 }

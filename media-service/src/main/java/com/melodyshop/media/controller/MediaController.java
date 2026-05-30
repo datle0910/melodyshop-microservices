@@ -5,10 +5,13 @@ import com.melodyshop.media.service.CloudinaryService;
 import com.melodyshop.common.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
@@ -69,5 +72,31 @@ public class MediaController {
                         "status", "UP"
                 ))
                 .build());
+    }
+
+    @GetMapping("/proxy")
+    public ResponseEntity<byte[]> proxyImage(@RequestParam("url") String imageUrl) {
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("User-Agent", "MelodyShop/1.0");
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<byte[]> response = restTemplate.exchange(
+                    imageUrl,
+                    org.springframework.http.HttpMethod.GET,
+                    entity,
+                    byte[].class
+            );
+            String contentType = response.getHeaders().getContentType() != null
+                    ? response.getHeaders().getContentType().toString()
+                    : "application/octet-stream";
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_TYPE, contentType)
+                    .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
+                    .body(response.getBody());
+        } catch (Exception e) {
+            log.error("Failed to proxy image from {}: {}", imageUrl, e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
     }
 }

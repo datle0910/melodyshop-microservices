@@ -34,8 +34,10 @@ public class OrderDTO {
     private BigDecimal totalAmount;
     private PaymentMethod paymentMethod;
     private String paymentId;
+    private String paymentUrl;
     private Boolean isPaid;
     private LocalDateTime paidAt;
+    private Boolean stockDeducted;
     private List<OrderItemDTO> items;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

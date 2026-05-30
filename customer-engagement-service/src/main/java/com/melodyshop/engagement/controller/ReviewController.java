@@ -28,6 +28,15 @@ public class ReviewController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(response));
     }
 
+    @PutMapping("/reviews/{reviewId}")
+    public ResponseEntity<ApiResponse<ReviewResponse>> updateReview(
+            @RequestHeader("X-User-Id") String userId,
+            @PathVariable String reviewId,
+            @Valid @RequestBody com.melodyshop.engagement.dto.UpdateReviewRequest request) {
+        ReviewResponse response = reviewService.updateReview(reviewId, userId, request);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
     @GetMapping("/products/{productId}/reviews")
     public ResponseEntity<ApiResponse<ProductReviewsResponse>> getReviewsByProduct(@PathVariable String productId) {
         return ResponseEntity.ok(ApiResponse.ok(reviewService.getReviewsByProduct(productId)));

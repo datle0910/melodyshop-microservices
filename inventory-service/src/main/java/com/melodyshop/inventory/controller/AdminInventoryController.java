@@ -110,6 +110,29 @@ public class AdminInventoryController {
         return ResponseEntity.ok(ApiResponse.ok(pageResponse));
     }
 
+    /**
+     * Nhập hàng vào kho — ADMIN
+     */
+    @PostMapping("/import")
+    public ResponseEntity<ApiResponse<ImportDTO>> importStock(
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-User-Role") String role,
+            @Valid @RequestBody ImportRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.created("Nhập hàng thành công",
+                        inventoryService.importStock(request, userId)));
+    }
+
+    /**
+     * Lịch sử nhập hàng — ADMIN
+     */
+    @GetMapping("/imports")
+    public ResponseEntity<ApiResponse<List<ImportDTO>>> getImportHistory(
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-User-Role") String role) {
+        return ResponseEntity.ok(ApiResponse.ok(inventoryService.getImportHistory()));
+    }
+
     // ==================== Warehouses ====================
 
     /**

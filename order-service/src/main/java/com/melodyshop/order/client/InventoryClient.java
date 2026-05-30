@@ -15,12 +15,15 @@ public interface InventoryClient {
             @RequestParam("sku") String sku,
             @RequestParam("requestedQuantity") int requestedQuantity);
 
-    @PostMapping("/api/inventory/reserve")
+    @PutMapping("/api/inventory/reserve")
     ApiResponse<Void> reserveStock(@RequestBody InventoryActionRequest request);
 
-    @PostMapping("/api/inventory/deduct")
+    @PutMapping("/api/inventory/deduct")
     ApiResponse<Void> deductStock(@RequestBody InventoryActionRequest request);
 
-    @PostMapping("/api/inventory/unreserve")
+    @PutMapping("/api/inventory/unreserve")
     ApiResponse<Void> unreserveStock(@RequestBody InventoryActionRequest request);
+
+    @PutMapping("/api/inventory/restore")
+    ApiResponse<Void> restoreStock(@RequestBody InventoryActionRequest request);
 }

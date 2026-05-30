@@ -16,7 +16,12 @@ spring:
           starttls:
             enable: true
             required: true
+          socks:
+            enable: false
         debug: false
+        connectiontimeout: 30000
+        timeout: 30000
+        writetimeout: 30000
   thymeleaf:
     prefix: classpath:/templates/email/
     suffix: .html
@@ -44,6 +49,11 @@ management:
   endpoint:
     health:
       show-details: always
+      probes:
+        enabled: true
+  health:
+    mail:
+      enabled: false
 
 logging:
   level:

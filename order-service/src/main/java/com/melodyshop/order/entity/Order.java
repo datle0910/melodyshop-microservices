@@ -74,12 +74,19 @@ public class Order extends BaseEntity {
     @Column(name = "payment_id", length = 100)
     private String paymentId;
 
+    @Transient
+    private String paymentUrl;
+
     @Column(name = "is_paid")
     @Builder.Default
     private Boolean isPaid = false;
 
     @Column(name = "paid_at")
     private java.time.LocalDateTime paidAt;
+
+    @Column(name = "stock_deducted")
+    @Builder.Default
+    private Boolean stockDeducted = false;
 
     @Version
     private Long version;

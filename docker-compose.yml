@@ -226,6 +226,11 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_ACCESS_EXPIRATION_MS: ${JWT_ACCESS_EXPIRATION_MS:-900000}
       JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS:-604800000}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@melodyshop.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      ADMIN_FULL_NAME: ${ADMIN_FULL_NAME:-Administrator}
+      ADMIN_ENABLED: ${ADMIN_ENABLED:-true}
+      FACE_SERVICE_URL: http://face-service:8093
       SPRING_PROFILES_ACTIVE: dev
     deploy:
       resources:
@@ -236,6 +241,8 @@ services:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
+      face-service:
+        condition: service_started
     networks:
       - backend-network
     healthcheck:
@@ -282,12 +289,18 @@ services:
     container_name: melodyshop-notification
     ports:
       - "8085:8085"
+    env_file:
+      - .env
     environment:
       EUREKA_HOST: eureka-server
-      MAIL_USERNAME: ${MAIL_USERNAME:-your-email@gmail.com}
-      MAIL_APP_PASSWORD: ${MAIL_APP_PASSWORD:-your-app-password}
       SPRING_PROFILES_ACTIVE: dev
       LOGSTASH_HOST: ${LOGSTASH_HOST:-}
+      no_proxy: "smtp.gmail.com,localhost,127.0.0.1"
+      NO_PROXY: "smtp.gmail.com,localhost,127.0.0.1"
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      http_proxy: ""
+      https_proxy: ""
     deploy:
       resources:
         limits:
@@ -379,6 +392,7 @@ services:
       PAYMENT_DB_NAME: ${PAYMENT_DB_NAME:-payment_db}
       PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-payment_webhook_secret}
       PAYMENT_GATEWAY_REDIRECT_BASE_URL: ${PAYMENT_GATEWAY_REDIRECT_BASE_URL:-http://fake-gateway/pay}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       EUREKA_HOST: eureka-server
       SPRING_PROFILES_ACTIVE: dev
     deploy:
@@ -427,7 +441,7 @@ services:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8086/actuator/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 15
 
   cart-service:
     build:
@@ -573,6 +587,28 @@ services:
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8093/actuator/health"]
       interval: 10s
+      timeout: 5s
+      retries: 5
+
+  face-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile.face
+    container_name: melodyshop-face
+    ports:
+      - "8097:8093"
+    environment:
+      PORT: 8093
+      HOST: 0.0.0.0
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8093/health || exit 1"]
+      interval: 15s
       timeout: 5s
       retries: 5
 

@@ -29,6 +29,24 @@ payment:
     publisher:
       fixed-delay-ms: ${PAYMENT_OUTBOX_PUBLISHER_DELAY_MS:3000}
 
+vnpay:
+  merchant-code: ${VNPAY_MERCHANT_CODE:TEST_MERCHANT}
+  secret-key: ${VNPAY_SECRET_KEY:TEST_SECRET_KEY}
+  return-url: ${VNPAY_RETURN_URL:http://localhost:5173/checkout}
+  api-url: ${VNPAY_API_URL:https://sandbox.vnpayment.vn/apis/vnpay}
+
+momo:
+  partner-code: ${MOMO_PARTNER_CODE:MOMO_PARTNER_CODE}
+  access-key: ${MOMO_ACCESS_KEY:MOMO_ACCESS_KEY}
+  secret-key: ${MOMO_SECRET_KEY:MOMO_SECRET_KEY}
+  return-url: ${MOMO_RETURN_URL:http://localhost:5173/checkout}
+  endpoint: ${MOMO_ENDPOINT:https://test-payment.momo.vn/v2/gateway/api/create}
+
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY:sk_test_testkey}
+  success-url: ${STRIPE_SUCCESS_URL:http://localhost:5173/checkout?payment=success&orderId={CHECKOUT_SESSION_ID}}
+  cancel-url: ${STRIPE_CANCEL_URL:http://localhost:5173/checkout?payment=failed}
+
 eureka:
   client:
     service-url:

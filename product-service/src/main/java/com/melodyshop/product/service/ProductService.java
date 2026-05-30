@@ -4,7 +4,9 @@ import com.melodyshop.common.exception.BadRequestException;
 import com.melodyshop.common.exception.ResourceNotFoundException;
 import com.melodyshop.product.dto.*;
 import com.melodyshop.product.entity.*;
+import com.melodyshop.product.exception.ProductInOrderException;
 import com.melodyshop.product.repository.*;
+import com.melodyshop.product.client.OrderClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -30,6 +32,7 @@ public class ProductService {
     private final CategoryRepository categoryRepository;
     private final BrandRepository brandRepository;
     private final com.melodyshop.product.client.InventoryClient inventoryClient;
+    private final OrderClient orderClient;
 
     /**
      * Lấy danh sách sản phẩm với phân trang, lọc, sắp xếp.
@@ -162,12 +165,18 @@ public class ProductService {
     public void deleteProduct(String id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm", "id", id));
-        
+
+        // Check if product has been ordered
+        boolean hasOrders = orderClient.hasOrdersByProductId(id);
+        if (hasOrders) {
+            throw new ProductInOrderException("Khong the xoa san pham: san pham da co trong don hang");
+        }
+
         // Xóa các biến thể trước để tránh lỗi khóa ngoại
         if (product.getVariants() != null) {
             variantRepository.deleteAll(product.getVariants());
         }
-        
+
         productRepository.delete(product);
     }
 
@@ -200,6 +209,34 @@ public class ProductService {
             brandName = brandRepository.findById(p.getBrandId()).map(b -> b.getName()).orElse(null);
         }
 
+        // Lấy stock info từ inventory-service
+        // Nếu có variants: dùng variant đầu tiên có SKU
+        // Nếu không: tạo SKU từ product ID (dùng base SKU)
+        String primarySku = null;
+        if (variants != null && !variants.isEmpty()) {
+            primarySku = variants.stream()
+                    .filter(v -> v.getSku() != null && !v.getSku().isBlank())
+                    .findFirst()
+                    .map(ProductVariantDTO::getSku)
+                    .orElse(null);
+        }
+
+        StockInfoResponse stockInfo = null;
+        if (primarySku != null) {
+            try {
+                var resp = inventoryClient.getStockInfo(primarySku);
+                if (resp != null && resp.getData() != null) {
+                    stockInfo = resp.getData();
+                }
+            } catch (Exception e) {
+                log.warn("Failed to fetch stock info for SKU {}: {}", primarySku, e.getMessage());
+            }
+        }
+
+        Integer stockQty = stockInfo != null ? stockInfo.getQuantity() : null;
+        Integer availableQty = stockInfo != null ? stockInfo.getAvailableQuantity() : null;
+        Boolean lowStk = stockInfo != null ? stockInfo.getLowStock() : null;
+
         return ProductDTO.builder()
                 .id(p.getId())
                 .name(p.getName())
@@ -218,12 +255,25 @@ public class ProductService {
                 .reviewCount(p.getReviewCount())
                 .variants(variants)
                 .images(images)
+                .stockQuantity(stockQty)
+                .availableQuantity(availableQty)
+                .lowStock(lowStk)
                 .createdAt(p.getCreatedAt())
                 .updatedAt(p.getUpdatedAt())
                 .build();
     }
 
     private ProductVariantDTO toVariantDTO(ProductVariant v) {
+        StockInfoResponse stockInfo = null;
+        try {
+            var resp = inventoryClient.getStockInfo(v.getSku());
+            if (resp != null && resp.getData() != null) {
+                stockInfo = resp.getData();
+            }
+        } catch (Exception e) {
+            log.warn("Failed to fetch stock info for variant SKU {}: {}", v.getSku(), e.getMessage());
+        }
+
         return ProductVariantDTO.builder()
                 .id(v.getId())
                 .variantName(v.getVariantName())
@@ -232,6 +282,9 @@ public class ProductService {
                 .color(v.getColor())
                 .size(v.getSize())
                 .isActive(v.getIsActive())
+                .stockQuantity(stockInfo != null ? stockInfo.getQuantity() : null)
+                .availableQuantity(stockInfo != null ? stockInfo.getAvailableQuantity() : null)
+                .lowStock(stockInfo != null ? stockInfo.getLowStock() : null)
                 .build();
     }
 

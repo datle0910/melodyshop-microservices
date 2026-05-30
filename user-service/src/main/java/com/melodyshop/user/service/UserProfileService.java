@@ -1,19 +1,25 @@
 package com.melodyshop.user.service;
 
-import com.melodyshop.common.exception.ResourceNotFoundException;
+import com.melodyshop.common.exception.BadRequestException;
+import com.melodyshop.user.client.AuthClient;
+import com.melodyshop.user.client.OrderClient;
 import com.melodyshop.user.dto.UpdateProfileRequest;
 import com.melodyshop.user.dto.UserProfileDTO;
 import com.melodyshop.user.entity.UserProfile;
 import com.melodyshop.user.repository.UserProfileRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import com.melodyshop.user.client.MediaServiceClient;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,13 +27,16 @@ public class UserProfileService {
 
     private final UserProfileRepository profileRepository;
     private final MediaServiceClient mediaServiceClient;
+    private final OrderClient orderClient;
+    private final AuthClient authClient;
 
-    public UserProfileDTO getProfile(String userId, String fullName) {
+    public UserProfileDTO getProfile(String userId, String fullName, String phone) {
         UserProfile profile = profileRepository.findById(userId)
                 .orElseGet(() -> {
                     UserProfile p = new UserProfile();
                     p.setId(userId);
                     p.setFullName(fullName);
+                    p.setPhone(phone);
                     return profileRepository.save(p);
                 });
         return toDTO(profile);
@@ -38,13 +47,13 @@ public class UserProfileService {
         UserProfile profile = profileRepository.findById(userId)
                 .orElseGet(() -> {
                     UserProfile p = new UserProfile();
-                    p.setId(userId); // Override auto-gen, use auth user id
+                    p.setId(userId);
                     return p;
                 });
 
         profile.setFullName(request.getFullName());
         profile.setPhone(request.getPhone());
-        
+
         if (avatar != null && !avatar.isEmpty()) {
             Map<String, Object> uploadResult = mediaServiceClient.uploadFile("avatar", avatar);
             if (uploadResult != null && uploadResult.containsKey("url")) {
@@ -61,11 +70,135 @@ public class UserProfileService {
     // --- Admin methods ---
 
     public Page<UserProfileDTO> getAllProfiles(Pageable pageable) {
-        return profileRepository.findAll(pageable).map(this::toDTO);
+        Page<UserProfile> profiles = profileRepository.findAll(pageable);
+        return enrichWithAuthData(profiles, pageable);
+    }
+
+    public Page<UserProfileDTO> searchProfiles(String keyword, Pageable pageable) {
+        try {
+            var authResponse = authClient.searchUsers(keyword, pageable.getPageNumber(), pageable.getPageSize());
+            if (authResponse == null || authResponse.getData() == null) {
+                return Page.empty(pageable);
+            }
+
+            List<AuthClient.UserSearchResult> authList = authResponse.getData().getContent();
+            if (authList == null || authList.isEmpty()) {
+                return Page.empty(pageable);
+            }
+
+            List<String> userIds = authList.stream()
+                    .map(u -> u.id)
+                    .collect(Collectors.toList());
+
+            Map<String, AuthClient.UserSearchResult> authMap = authList.stream()
+                    .collect(Collectors.toMap(u -> u.id, u -> u));
+
+            List<UserProfile> profiles = profileRepository.findAllById(userIds);
+            Map<String, UserProfile> profileMap = profiles.stream()
+                    .collect(Collectors.toMap(p -> p.getId(), p -> p));
+
+            List<UserProfileDTO> dtos = userIds.stream().map(id -> {
+                UserProfileDTO dto = new UserProfileDTO();
+                dto.setId(id);
+                AuthClient.UserSearchResult auth = authMap.get(id);
+                if (auth != null) {
+                    dto.setEmail(auth.email);
+                    dto.setFullName(auth.fullName);
+                    if (auth.createdAt != null) {
+                        try {
+                            dto.setCreatedAt(LocalDateTime.parse(auth.createdAt));
+                        } catch (Exception e) {
+                            dto.setCreatedAt(null);
+                        }
+                    }
+                }
+                UserProfile profile = profileMap.get(id);
+                if (profile != null) {
+                    dto.setPhone(profile.getPhone());
+                    dto.setAvatarUrl(profile.getAvatarUrl());
+                    dto.setUpdatedAt(profile.getUpdatedAt());
+                }
+                return dto;
+            }).collect(Collectors.toList());
+
+            long total = authResponse.getData().getTotalElements();
+            return new PageImpl<>(dtos, pageable, total);
+        } catch (Exception e) {
+            return Page.empty(pageable);
+        }
     }
 
     public UserProfileDTO getProfileById(String id) {
-        return getProfile(id, null);
+        UserProfile profile = profileRepository.findById(id).orElse(null);
+        UserProfileDTO dto = new UserProfileDTO();
+        dto.setId(id);
+        if (profile != null) {
+            dto.setFullName(profile.getFullName());
+            dto.setPhone(profile.getPhone());
+            dto.setAvatarUrl(profile.getAvatarUrl());
+            dto.setCreatedAt(profile.getCreatedAt());
+            dto.setUpdatedAt(profile.getUpdatedAt());
+        }
+        return dto;
+    }
+
+    @Transactional
+    public void deleteUser(String userId) {
+        boolean hasOrders = orderClient.hasOrdersByUserId(userId);
+        if (hasOrders) {
+            throw new BadRequestException("Khong the xoa tai khoan: nguoi dung da co don hang trong he thong");
+        }
+
+        try {
+            authClient.revokeUserTokens(userId);
+        } catch (Exception e) {
+            // Log but continue
+        }
+
+        profileRepository.deleteById(userId);
+    }
+
+    private Page<UserProfileDTO> enrichWithAuthData(Page<UserProfile> profiles, Pageable pageable) {
+        if (profiles.getContent().isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+
+        List<String> ids = profiles.getContent().stream()
+                .map(p -> p.getId())
+                .collect(Collectors.toList());
+
+        try {
+            var authResponse = authClient.searchUsers(null, 0, ids.size());
+            if (authResponse != null && authResponse.getData() != null) {
+                Map<String, AuthClient.UserSearchResult> authMap =
+                        authResponse.getData().getContent().stream()
+                                .collect(Collectors.toMap(u -> u.id, u -> u));
+
+                List<UserProfileDTO> dtos = profiles.getContent().stream()
+                        .map(p -> {
+                            UserProfileDTO dto = toDTO(p);
+                            AuthClient.UserSearchResult auth = authMap.get(p.getId());
+                            if (auth != null) {
+                                dto.setEmail(auth.email);
+                                if (auth.createdAt != null) {
+                                    try {
+                                        dto.setCreatedAt(LocalDateTime.parse(auth.createdAt));
+                                    } catch (Exception e) {
+                                        // ignore
+                                    }
+                                }
+                            }
+                            return dto;
+                        })
+                        .collect(Collectors.toList());
+
+                return new PageImpl<>(dtos, pageable, profiles.getTotalElements());
+            }
+        } catch (Exception e) {
+            // If auth call fails, return profiles without email
+        }
+
+        return profiles.map(this::toDTO);
     }
 
     private UserProfileDTO toDTO(UserProfile p) {

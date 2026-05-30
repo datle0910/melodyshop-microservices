@@ -56,15 +56,16 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
-    public String sendOtp(String toEmail, String recipientName) {
-        String otp = generateOtp();
+    public String sendOtp(String toEmail, String recipientName, String externalOtp) {
+        String otp = (externalOtp != null && !externalOtp.isBlank()) ? externalOtp : generateOtp();
 
         sendEmail(EmailRequest.builder()
                 .to(toEmail)
                 .subject("Mã xác thực OTP - MelodyShop")
                 .templateName("otp")
                 .variables(Map.of(
-                        "recipientName", recipientName,
+                        "recipientName", (recipientName != null && !recipientName.isBlank())
+                                ? recipientName : toEmail.split("@")[0],
                         "otp", otp,
                         "expiryMinutes", otpExpiryMinutes
                 ))

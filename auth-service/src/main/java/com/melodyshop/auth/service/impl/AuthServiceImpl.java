@@ -5,13 +5,19 @@ import com.melodyshop.auth.dto.*;
 import com.melodyshop.auth.entity.RefreshToken;
 import com.melodyshop.auth.entity.Role;
 import com.melodyshop.auth.entity.User;
+import com.melodyshop.auth.entity.VerificationCode;
 import com.melodyshop.auth.repository.RefreshTokenRepository;
 import com.melodyshop.auth.repository.RoleRepository;
 import com.melodyshop.auth.repository.UserRepository;
+import com.melodyshop.auth.repository.VerificationCodeRepository;
 import com.melodyshop.auth.service.AuthService;
 import com.melodyshop.common.exception.BadRequestException;
 import com.melodyshop.common.exception.ResourceNotFoundException;
+import com.melodyshop.auth.client.NotificationServiceClient;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,9 +30,6 @@ import java.util.Base64;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import lombok.extern.slf4j.Slf4j;
-import com.melodyshop.auth.client.NotificationServiceClient;
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -35,14 +38,83 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final VerificationCodeRepository verificationCodeRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final NotificationServiceClient notificationServiceClient;
 
+    private static final int VERIFICATION_CODE_EXPIRY_MINUTES = 10;
+    private static final int MAX_VERIFICATION_ATTEMPTS = 5;
+
+    @Override
+    @Transactional
+    public void sendVerificationCode(String email, String fullName) {
+        if (userRepository.existsByEmail(email)) {
+            throw new BadRequestException("Email đã được sử dụng: " + email);
+        }
+
+        // Mark all existing codes for this email/purpose as used
+        verificationCodeRepository.markAllAsUsed(email, "REGISTRATION");
+
+        // Generate 6-digit code
+        String code = String.format("%06d", new java.security.SecureRandom().nextInt(1_000_000));
+
+        // Save to database
+        VerificationCode verificationCode = VerificationCode.builder()
+                .email(email)
+                .code(code)
+                .purpose("REGISTRATION")
+                .expiresAt(java.time.LocalDateTime.now().plusMinutes(VERIFICATION_CODE_EXPIRY_MINUTES))
+                .isUsed(false)
+                .isVerified(false)
+                .build();
+        verificationCodeRepository.save(verificationCode);
+
+        // Send OTP email via NotificationService
+        try {
+            var result = notificationServiceClient.sendOtp(OtpRequest.builder()
+                    .to(email)
+                    .recipientName(fullName)
+                    .otp(code)
+                    .build());
+            if (!result.isSuccess() && "MAIL_SERVICE_UNAVAILABLE".equals(result.getMessage())) {
+                // Notification service is down - allow registration anyway, log the code
+                log.warn("Notification service unavailable. Registration code for {}: {}", email, code);
+            } else {
+                log.info("Verification code sent to {}", email);
+            }
+        } catch (Exception e) {
+            // Notification service unreachable - allow registration anyway, log the code
+            log.warn("Failed to send verification email to {}: {}. Code: {}", email, e.getMessage(), code);
+        }
+    }
+
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        // Check email uniqueness
+        // Verify the code
+        if (request.getVerificationCode() == null || request.getVerificationCode().isBlank()) {
+            throw new BadRequestException("Mã xác nhận không được để trống");
+        }
+
+        VerificationCode verification = verificationCodeRepository
+                .findTopByEmailAndPurposeAndIsUsedFalseOrderByCreatedAtDesc(request.getEmail(), "REGISTRATION")
+                .orElseThrow(() -> new BadRequestException("Không tìm thấy mã xác nhận. Vui lòng yêu cầu gửi lại mã."));
+
+        if (verification.isExpired()) {
+            throw new BadRequestException("Mã xác nhận đã hết hạn. Vui lòng yêu cầu gửi lại mã.");
+        }
+
+        if (!verification.getCode().equals(request.getVerificationCode().trim())) {
+            throw new BadRequestException("Mã xác nhận không đúng. Vui lòng kiểm tra lại.");
+        }
+
+        // Mark code as used
+        verification.setIsUsed(true);
+        verification.setIsVerified(true);
+        verificationCodeRepository.save(verification);
+
+        // Check email uniqueness (in case race condition)
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BadRequestException("Email đã được sử dụng: " + request.getEmail());
         }
@@ -51,14 +123,14 @@ public class AuthServiceImpl implements AuthService {
         Role customerRole = roleRepository.findByName("ROLE_CUSTOMER")
                 .orElseThrow(() -> new ResourceNotFoundException("Role", "name", "ROLE_CUSTOMER"));
 
-        // Create user
+        // Create user (verified now)
         User user = User.builder()
                 .email(request.getEmail())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName())
                 .phone(request.getPhone())
                 .isActive(true)
-                .isVerified(false)
+                .isVerified(true)
                 .loyaltyPoints(0)
                 .build();
         user.getRoles().add(customerRole);
@@ -67,7 +139,10 @@ public class AuthServiceImpl implements AuthService {
 
         // Send welcome email
         try {
-            notificationServiceClient.sendWelcomeEmail(user.getEmail(), user.getFullName());
+            notificationServiceClient.sendWelcomeEmail(WelcomeRequest.builder()
+                    .email(user.getEmail())
+                    .fullName(user.getFullName())
+                    .build());
         } catch (Exception e) {
             log.error("Failed to send welcome email to {}: {}", user.getEmail(), e.getMessage());
         }
@@ -130,6 +205,12 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
+    public void revokeUserTokens(String userId) {
+        refreshTokenRepository.deleteByUserId(userId);
+    }
+
+    @Override
     public UserInfoResponse getUserInfo(String userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
@@ -152,6 +233,18 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    @Override
+    public Page<UserSearchDTO> searchUsers(String keyword, Pageable pageable) {
+        Page<User> users = userRepository.searchUsers(keyword, pageable);
+        return users.map(user -> UserSearchDTO.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .phone(user.getPhone())
+                .createdAt(user.getCreatedAt())
+                .build());
+    }
+
     // ===== Private helpers =====
 
     private AuthResponse generateAuthResponse(User user) {
@@ -166,7 +259,7 @@ public class AuthServiceImpl implements AuthService {
 
         // Generate access token
         String accessToken = jwtTokenProvider.generateAccessToken(
-                user.getId(), user.getEmail(), user.getFullName(), primaryRole);
+                user.getId(), user.getEmail(), user.getFullName(), user.getPhone(), primaryRole);
 
         // Generate refresh token
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());

@@ -78,4 +78,24 @@ public class OrderController {
         OrderDTO order = orderService.cancelOrder(orderId, userId, reason);
         return ResponseEntity.ok(ApiResponse.ok("Hủy đơn hàng thành công", order));
     }
+
+    @GetMapping("/has-orders")
+    public ResponseEntity<ApiResponse<Boolean>> hasOrdersByUserId(@RequestParam("userId") String userId) {
+        boolean hasOrders = orderService.hasOrdersByUserId(userId);
+        return ResponseEntity.ok(ApiResponse.ok(hasOrders));
+    }
+
+    @GetMapping("/has-product-orders")
+    public ResponseEntity<ApiResponse<Boolean>> hasOrdersByProductId(@RequestParam("productId") String productId) {
+        boolean hasOrders = orderService.hasOrdersByProductId(productId);
+        return ResponseEntity.ok(ApiResponse.ok(hasOrders));
+    }
+
+    @PostMapping("/guest")
+    public ResponseEntity<ApiResponse<OrderDTO>> createGuestOrder(
+            @Valid @RequestBody GuestCreateOrderRequest request) {
+        OrderDTO order = orderService.createGuestOrder(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.created(order));
+    }
 }

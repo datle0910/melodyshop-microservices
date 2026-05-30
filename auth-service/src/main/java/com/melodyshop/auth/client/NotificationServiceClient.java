@@ -1,13 +1,20 @@
 package com.melodyshop.auth.client;
 
 import com.melodyshop.auth.config.feign.NotificationServiceClientFallbackFactory;
+import com.melodyshop.auth.dto.OtpRequest;
+import com.melodyshop.auth.dto.WelcomeRequest;
+import com.melodyshop.common.dto.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+
+import java.util.Map;
 
 @FeignClient(name = "notification-service", fallbackFactory = NotificationServiceClientFallbackFactory.class)
 public interface NotificationServiceClient {
 
     @PostMapping("/api/notifications/welcome")
-    void sendWelcomeEmail(@RequestParam("email") String email, @RequestParam("fullName") String fullName);
+    ApiResponse<Map<String, String>> sendWelcomeEmail(WelcomeRequest request);
+
+    @PostMapping("/api/notifications/otp")
+    ApiResponse<Map<String, String>> sendOtp(OtpRequest request);
 }

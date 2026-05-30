@@ -9,8 +9,9 @@ import com.melodyshop.payment.entity.PaymentTransaction;
 import com.melodyshop.payment.enums.PaymentStatus;
 import com.melodyshop.payment.repository.OutboxEventRepository;
 import com.melodyshop.payment.repository.PaymentTransactionRepository;
-import com.melodyshop.payment.service.PaymentGatewayService;
 import com.melodyshop.payment.service.WebhookSignatureService;
+import com.melodyshop.payment.service.gateway.PaymentGateway;
+import com.melodyshop.payment.service.gateway.PaymentGatewayFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +24,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,10 +37,13 @@ class PaymentServiceImplTest {
     private OutboxEventRepository outboxEventRepository;
 
     @Mock
-    private PaymentGatewayService paymentGatewayService;
+    private PaymentGatewayFactory paymentGatewayFactory;
 
     @Mock
     private WebhookSignatureService webhookSignatureService;
+
+    @Mock
+    private PaymentGateway paymentGateway;
 
     private PaymentServiceImpl paymentService;
 
@@ -47,7 +52,7 @@ class PaymentServiceImplTest {
         paymentService = new PaymentServiceImpl(
                 paymentTransactionRepository,
                 outboxEventRepository,
-                paymentGatewayService,
+                paymentGatewayFactory,
                 webhookSignatureService,
                 new ObjectMapper()
         );
@@ -55,27 +60,36 @@ class PaymentServiceImplTest {
 
     @Test
     void shouldReturnExistingPaymentWhenIdempotencyKeyRepeats() {
-        PaymentTransaction existingPayment = payment("pay-1", "order-1", "idem-1", "GW-1", PaymentStatus.PENDING);
+        PaymentTransaction existingPayment = payment("pay-1", "order-1", "idem-1", "VNPAY", PaymentStatus.PENDING);
         when(paymentTransactionRepository.findByIdempotencyKey("idem-1")).thenReturn(Optional.of(existingPayment));
-        when(paymentGatewayService.buildRedirectUrl(existingPayment)).thenReturn("http://fake-gateway/pay/GW-1?paymentId=pay-1");
+        when(paymentGatewayFactory.getGateway("VNPAY")).thenReturn(paymentGateway);
+        when(paymentGateway.buildPaymentUrl(existingPayment)).thenReturn("http://fake-gateway/pay/pay-1");
 
-        CreatePaymentRequest request = new CreatePaymentRequest("order-1", new BigDecimal("49.90"), "usd");
+        CreatePaymentRequest request = new CreatePaymentRequest();
+        request.setOrderId("order-1");
+        request.setAmount(new BigDecimal("49.90"));
+        request.setCurrency("USD");
+        request.setProvider("VNPAY");
 
         var response = paymentService.createPayment("idem-1", request);
 
         assertEquals("pay-1", response.getPaymentId());
-        assertEquals("http://fake-gateway/pay/GW-1?paymentId=pay-1", response.getRedirectUrl());
+        assertEquals("http://fake-gateway/pay/pay-1", response.getRedirectUrl());
         verify(paymentTransactionRepository, never()).saveAndFlush(any(PaymentTransaction.class));
     }
 
     @Test
     void shouldRejectCreatePaymentWhenAnotherActivePaymentExists() {
-        PaymentTransaction activePayment = payment("pay-2", "order-2", "idem-old", "GW-2", PaymentStatus.PENDING);
+        PaymentTransaction activePayment = payment("pay-2", "order-2", "idem-old", "VNPAY", PaymentStatus.PENDING);
         when(paymentTransactionRepository.findByIdempotencyKey("idem-new")).thenReturn(Optional.empty());
         when(paymentTransactionRepository.existsBySuccessfulPaymentKey("order-2")).thenReturn(false);
         when(paymentTransactionRepository.findByActivePaymentKey("order-2")).thenReturn(Optional.of(activePayment));
 
-        CreatePaymentRequest request = new CreatePaymentRequest("order-2", new BigDecimal("199.00"), "VND");
+        CreatePaymentRequest request = new CreatePaymentRequest();
+        request.setOrderId("order-2");
+        request.setAmount(new BigDecimal("199.00"));
+        request.setCurrency("VND");
+        request.setProvider("VNPAY");
 
         assertThrows(BadRequestException.class, () -> paymentService.createPayment("idem-new", request));
         verify(paymentTransactionRepository, never()).saveAndFlush(any(PaymentTransaction.class));
@@ -83,16 +97,14 @@ class PaymentServiceImplTest {
 
     @Test
     void shouldPublishOutboxOnlyOnceWhenWebhookIsDuplicated() {
-        PaymentTransaction paymentTransaction = payment("pay-3", "order-3", "idem-3", "GW-3", PaymentStatus.PENDING);
-        PaymentWebhookRequest webhookRequest = new PaymentWebhookRequest(
-                "GW-3",
-                "order-3",
-                "SUCCESS",
-                "valid-signature",
-                null,
-                new BigDecimal("49.90"),
-                "USD"
-        );
+        PaymentTransaction paymentTransaction = payment("pay-3", "order-3", "idem-3", "VNPAY", PaymentStatus.PENDING);
+        PaymentWebhookRequest webhookRequest = new PaymentWebhookRequest();
+        webhookRequest.setGatewayTransactionId("GW-3");
+        webhookRequest.setOrderId("order-3");
+        webhookRequest.setStatus("SUCCESS");
+        webhookRequest.setSignature("valid-signature");
+        webhookRequest.setAmount(new BigDecimal("49.90"));
+        webhookRequest.setCurrency("USD");
 
         when(webhookSignatureService.isValid(webhookRequest)).thenReturn(true);
         when(paymentTransactionRepository.findByGatewayTransactionId("GW-3")).thenReturn(Optional.of(paymentTransaction));
@@ -115,7 +127,7 @@ class PaymentServiceImplTest {
     private PaymentTransaction payment(String id,
                                        String orderId,
                                        String idempotencyKey,
-                                       String gatewayTransactionId,
+                                       String provider,
                                        PaymentStatus status) {
         PaymentTransaction paymentTransaction = new PaymentTransaction();
         paymentTransaction.setId(id);
@@ -123,7 +135,8 @@ class PaymentServiceImplTest {
         paymentTransaction.setAmount(new BigDecimal("49.90"));
         paymentTransaction.setCurrency("USD");
         paymentTransaction.setIdempotencyKey(idempotencyKey);
-        paymentTransaction.setGatewayTransactionId(gatewayTransactionId);
+        paymentTransaction.setGatewayTransactionId("GW-" + id);
+        paymentTransaction.setProvider(provider);
         paymentTransaction.transitionTo(status);
         return paymentTransaction;
     }

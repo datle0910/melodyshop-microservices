@@ -127,7 +127,7 @@ class NotificationControllerTest {
     @Test
     @DisplayName("POST /otp with valid request → 200 OK, returns 6-digit OTP")
     void sendOtp_withValidRequest_returns200WithOtp() throws Exception {
-        when(emailService.sendOtp(anyString(), anyString())).thenReturn("482931");
+        when(emailService.sendOtp(anyString(), anyString(), any())).thenReturn("482931");
 
         OtpRequest request = OtpRequest.builder()
                 .to("user@test.com")
@@ -143,7 +143,7 @@ class NotificationControllerTest {
                 .andExpect(jsonPath("$.data.otp").value("482931"))
                 .andExpect(jsonPath("$.data.to").value("user@test.com"));
 
-        verify(emailService).sendOtp("user@test.com", "Nguyen Van A");
+        verify(emailService).sendOtp("user@test.com", "Nguyen Van A", null);
     }
 
     @Test

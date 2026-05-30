@@ -30,12 +30,13 @@ public class JwtTokenProvider {
         return Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
     }
 
-    public String generateAccessToken(String userId, String email, String fullName, String role) {
+    public String generateAccessToken(String userId, String email, String fullName, String phone, String role) {
         return Jwts.builder()
                 .subject(userId)
                 .claims(Map.of(
                         "email", email,
                         "fullName", fullName,
+                        "phone", phone != null ? phone : "",
                         "role", role
                 ))
                 .issuedAt(new Date())

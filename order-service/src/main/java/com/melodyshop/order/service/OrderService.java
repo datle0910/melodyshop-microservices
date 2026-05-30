@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 
 public interface OrderService {
     OrderDTO createOrder(String userId, CreateOrderRequest request);
+    OrderDTO createGuestOrder(GuestCreateOrderRequest request);
     OrderDTO getOrderById(String orderId);
     OrderDTO getOrderByIdAndUserId(String orderId, String userId);
     OrderDTO getOrderByNumber(String orderNumber);
@@ -16,4 +17,8 @@ public interface OrderService {
     OrderDTO updateOrderStatus(String orderId, String changedBy, UpdateOrderStatusRequest request);
     OrderDTO cancelOrder(String orderId, String userId, String reason);
     PageResponse<OrderStatusHistoryDTO> getOrderStatusHistory(String orderId, Pageable pageable);
+    OrderItemDTO updateOrderItemQuantity(String orderId, String itemId, int newQuantity);
+    boolean hasOrdersByUserId(String userId);
+    boolean hasOrdersByProductId(String productId);
+    OrderDTO updatePaymentStatus(String orderId, String changedBy);
 }

@@ -4,7 +4,9 @@ import com.melodyshop.common.exception.BadRequestException;
 import com.melodyshop.common.exception.ResourceNotFoundException;
 import com.melodyshop.inventory.dto.*;
 import com.melodyshop.inventory.entity.*;
+import com.melodyshop.inventory.client.ProductClient;
 import com.melodyshop.inventory.repository.*;
+import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -12,6 +14,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -25,6 +29,9 @@ public class InventoryService {
     private final InventoryRepository inventoryRepository;
     private final InventoryLogRepository logRepository;
     private final WarehouseRepository warehouseRepository;
+    private final InventoryImportRepository importRepository;
+    private final InventoryImportItemRepository importItemRepository;
+    private final ProductClient productClient;
 
     // ==================== Internal APIs (Order Service gọi) ====================
 
@@ -132,7 +139,35 @@ public class InventoryService {
     }
 
     /**
-     * Khởi tạo kho cho sản phẩm mới (số lượng 0).
+     * Hoàn lại stock khi đơn bị hủy hoặc hoàn tiền.
+     * Tăng cả quantity (tổng tồn kho) và bỏ reserve.
+     */
+    @Transactional
+    public InventoryDTO restoreStock(InventoryActionRequest request) {
+        Inventory inventory = inventoryRepository
+                .findBySkuAndWarehouseIdForUpdate(request.getSku(), DEFAULT_WAREHOUSE)
+                .orElseThrow(() -> new ResourceNotFoundException("Tồn kho", "sku", request.getSku()));
+
+        int beforeQty = inventory.getQuantity();
+        int beforeReserved = inventory.getReservedQuantity();
+
+        // Hoàn lại: tăng quantity, giảm reserved
+        inventory.setQuantity(beforeQty + request.getQuantity());
+        inventory.setReservedQuantity(Math.max(0, beforeReserved - request.getQuantity()));
+        inventoryRepository.save(inventory);
+
+        createLog(inventory, "RESTORE", request.getQuantity(),
+                beforeQty, inventory.getQuantity(),
+                request.getOrderId(), request.getNote(), null);
+
+        log.info("Restored {} units of SKU {} for order {}",
+                request.getQuantity(), request.getSku(), request.getOrderId());
+
+        return toDTO(inventory);
+    }
+
+    /**
+     * Khởi tạo kho cho sản phẩm mới (số lượng 20).
      */
     @Transactional
     public void initInventory(String productId, String variantId, String sku) {
@@ -145,15 +180,180 @@ public class InventoryService {
                 .variantId(variantId)
                 .sku(sku)
                 .warehouseId(DEFAULT_WAREHOUSE)
-                .quantity(0)
+                .quantity(20)
                 .reservedQuantity(0)
                 .reorderPoint(10)
                 .build();
         inventoryRepository.save(inventory);
-        log.info("Initialized inventory for SKU: {}", sku);
+        log.info("Initialized inventory for SKU: {} with 20 items", sku);
+    }
+
+    /**
+     * Lấy thông tin tồn kho theo SKU (dùng cho product-service hiển thị stock).
+     */
+    public StockInfoResponse getStockInfo(String sku) {
+        List<Inventory> inventories = inventoryRepository.findBySku(sku);
+        if (inventories.isEmpty()) {
+            return StockInfoResponse.builder()
+                    .sku(sku)
+                    .quantity(0)
+                    .reservedQuantity(0)
+                    .availableQuantity(0)
+                    .lowStock(true)
+                    .build();
+        }
+
+        int totalQty = inventories.stream().mapToInt(Inventory::getQuantity).sum();
+        int totalReserved = inventories.stream().mapToInt(Inventory::getReservedQuantity).sum();
+        int totalAvailable = totalQty - totalReserved;
+
+        // Check low stock across all warehouse records for this SKU
+        boolean lowStock = inventories.stream()
+                .anyMatch(inv -> inv.getAvailableQuantity() <= inv.getReorderPoint());
+
+        return StockInfoResponse.builder()
+                .sku(sku)
+                .quantity(totalQty)
+                .reservedQuantity(totalReserved)
+                .availableQuantity(totalAvailable)
+                .lowStock(lowStock)
+                .build();
     }
 
     // ==================== Admin APIs ====================
+
+    /**
+     * Nhập hàng vào kho — tạo phiếu nhập + cập nhật tồn kho.
+     */
+    @Transactional
+    public ImportDTO importStock(ImportRequest request, String userId) {
+        String importCode = generateImportCode();
+
+        InventoryImport importRecord = InventoryImport.builder()
+                .importCode(importCode)
+                .note(request.getNote())
+                .importedBy(userId)
+                .totalQuantity(0)
+                .build();
+
+        int totalQtyAdded = 0;
+
+        for (ImportRequest.ImportItemRequest itemReq : request.getItems()) {
+            Inventory inventory = inventoryRepository
+                    .findBySkuAndWarehouseId(itemReq.getSku(), DEFAULT_WAREHOUSE)
+                    .orElse(null);
+
+            int quantityBefore;
+            int quantityAfter;
+
+            if (inventory == null) {
+                // Tạo mới inventory record nếu chưa có
+                inventory = Inventory.builder()
+                        .productId(itemReq.getProductId())
+                        .variantId(itemReq.getVariantId())
+                        .sku(itemReq.getSku())
+                        .warehouseId(DEFAULT_WAREHOUSE)
+                        .quantity(0)
+                        .reservedQuantity(0)
+                        .reorderPoint(10)
+                        .build();
+                quantityBefore = 0;
+            } else {
+                quantityBefore = inventory.getQuantity();
+            }
+
+            inventory.setQuantity(quantityBefore + itemReq.getQuantity());
+            quantityAfter = inventory.getQuantity();
+            inventoryRepository.save(inventory);
+
+            // Ghi log nhập hàng
+            createLog(inventory, "IMPORT", itemReq.getQuantity(),
+                    quantityBefore, quantityAfter,
+                    null, request.getNote(), userId);
+
+            // Lấy giá từ ProductService để tính giá nhập = 80% giá bán
+            BigDecimal importPrice = BigDecimal.ZERO;
+            try {
+                var response = productClient.getProductById(itemReq.getProductId());
+                if (response != null && response.isSuccess() && response.getData() != null) {
+                    BigDecimal sellPrice = response.getData().getPrice();
+                    if (sellPrice != null) {
+                        importPrice = sellPrice.multiply(new BigDecimal("0.8"));
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Failed to get product price for ID {}: {}", itemReq.getProductId(), e.getMessage());
+            }
+
+            // Tạo item cho phiếu nhập
+            InventoryImportItem importItem = InventoryImportItem.builder()
+                    .sku(itemReq.getSku())
+                    .productId(itemReq.getProductId())
+                    .variantId(itemReq.getVariantId())
+                    .productName(itemReq.getProductName())
+                    .quantityBefore(quantityBefore)
+                    .quantityAfter(quantityAfter)
+                    .quantityAdded(itemReq.getQuantity())
+                    .importPrice(importPrice)
+                    .build();
+
+            importRecord.addItem(importItem);
+            totalQtyAdded += itemReq.getQuantity();
+        }
+
+        importRecord.setTotalQuantity(totalQtyAdded);
+        importRepository.save(importRecord);
+
+        log.info("Import stock completed: code={}, items={}, totalQty={}, by={}",
+                importCode, request.getItems().size(), totalQtyAdded, userId);
+
+        return toImportDTO(importRecord);
+    }
+
+    /**
+     * Lấy danh sách phiếu nhập hàng (Admin).
+     */
+    public List<ImportDTO> getImportHistory() {
+        return importRepository.findAll().stream()
+                .map(this::toImportDTO)
+                .collect(Collectors.toList());
+    }
+
+    private String generateImportCode() {
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+        String code = "IMP" + timestamp;
+        int suffix = 1;
+        while (importRepository.existsByImportCode(code + (suffix > 1 ? "-" + suffix : ""))) {
+            suffix++;
+        }
+        return suffix > 1 ? code + "-" + suffix : code;
+    }
+
+    private ImportDTO toImportDTO(InventoryImport imp) {
+        List<ImportDTO.ImportItemDTO> itemDTOs = imp.getItems().stream()
+                .map(item -> ImportDTO.ImportItemDTO.builder()
+                        .id(item.getId())
+                        .sku(item.getSku())
+                        .productId(item.getProductId())
+                        .variantId(item.getVariantId())
+                        .productName(item.getProductName())
+                        .quantityBefore(item.getQuantityBefore())
+                        .quantityAfter(item.getQuantityAfter())
+                        .quantityAdded(item.getQuantityAdded())
+                        .importPrice(item.getImportPrice())
+                        .build())
+                .collect(Collectors.toList());
+
+        return ImportDTO.builder()
+                .id(imp.getId())
+                .importCode(imp.getImportCode())
+                .note(imp.getNote())
+                .importedBy(imp.getImportedBy())
+                .totalQuantity(imp.getTotalQuantity())
+                .items(itemDTOs)
+                .createdAt(imp.getCreatedAt())
+                .build();
+    }
 
     /**
      * Danh sách tồn kho (Admin).

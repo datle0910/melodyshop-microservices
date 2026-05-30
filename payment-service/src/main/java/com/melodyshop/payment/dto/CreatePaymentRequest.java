@@ -21,6 +21,8 @@ public class CreatePaymentRequest {
     @Size(min = 3, max = 10)
     private String currency;
 
+    private String provider;
+
     public CreatePaymentRequest() {
     }
 
@@ -52,5 +54,13 @@ public class CreatePaymentRequest {
 
     public void setCurrency(String currency) {
         this.currency = currency;
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
     }
 }

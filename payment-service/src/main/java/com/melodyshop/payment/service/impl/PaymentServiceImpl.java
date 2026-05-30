@@ -15,7 +15,8 @@ import com.melodyshop.payment.enums.OutboxStatus;
 import com.melodyshop.payment.enums.PaymentStatus;
 import com.melodyshop.payment.repository.OutboxEventRepository;
 import com.melodyshop.payment.repository.PaymentTransactionRepository;
-import com.melodyshop.payment.service.PaymentGatewayService;
+import com.melodyshop.payment.service.gateway.PaymentGateway;
+import com.melodyshop.payment.service.gateway.PaymentGatewayFactory;
 import com.melodyshop.payment.service.PaymentService;
 import com.melodyshop.payment.service.WebhookSignatureService;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -34,18 +35,18 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final OutboxEventRepository outboxEventRepository;
-    private final PaymentGatewayService paymentGatewayService;
+    private final PaymentGatewayFactory paymentGatewayFactory;
     private final WebhookSignatureService webhookSignatureService;
     private final ObjectMapper objectMapper;
 
     public PaymentServiceImpl(PaymentTransactionRepository paymentTransactionRepository,
                               OutboxEventRepository outboxEventRepository,
-                              PaymentGatewayService paymentGatewayService,
+                              PaymentGatewayFactory paymentGatewayFactory,
                               WebhookSignatureService webhookSignatureService,
                               ObjectMapper objectMapper) {
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.outboxEventRepository = outboxEventRepository;
-        this.paymentGatewayService = paymentGatewayService;
+        this.paymentGatewayFactory = paymentGatewayFactory;
         this.webhookSignatureService = webhookSignatureService;
         this.objectMapper = objectMapper;
     }
@@ -73,12 +74,15 @@ public class PaymentServiceImpl implements PaymentService {
                     throw new BadRequestException("Đơn hàng đang có giao dịch thanh toán chờ xử lý");
                 });
 
+        PaymentGateway gateway = paymentGatewayFactory.getGateway(request.getProvider());
+
         PaymentTransaction paymentTransaction = new PaymentTransaction();
         paymentTransaction.setOrderId(normalizedOrderId);
         paymentTransaction.setAmount(request.getAmount());
         paymentTransaction.setCurrency(normalizedCurrency);
         paymentTransaction.setIdempotencyKey(normalizedIdempotencyKey);
-        paymentTransaction.setGatewayTransactionId(paymentGatewayService.generateGatewayTransactionId());
+        paymentTransaction.setGatewayTransactionId(gateway.generateGatewayTransactionId());
+        paymentTransaction.setProvider(gateway.getProviderName());
         paymentTransaction.transitionTo(PaymentStatus.PENDING);
 
         try {
@@ -87,7 +91,12 @@ public class PaymentServiceImpl implements PaymentService {
             throw new BadRequestException("Không thể tạo payment mới vì đơn hàng đang có giao dịch active hoặc đã được thanh toán");
         }
 
-        return toCreatePaymentResponse(paymentTransaction);
+        String paymentUrl = gateway.buildPaymentUrl(paymentTransaction);
+
+        return new CreatePaymentResponse(
+                paymentTransaction.getId(),
+                paymentUrl
+        );
     }
 
     @Override
@@ -108,7 +117,8 @@ public class PaymentServiceImpl implements PaymentService {
             throw new BadRequestException("Webhook không chấp nhận trạng thái PENDING");
         }
 
-        PaymentTransaction paymentTransaction = paymentTransactionRepository.findByGatewayTransactionId(request.getGatewayTransactionId().trim())
+        PaymentTransaction paymentTransaction = paymentTransactionRepository
+                .findByGatewayTransactionId(request.getGatewayTransactionId().trim())
                 .orElseThrow(() -> new ResourceNotFoundException("PaymentTransaction", "gatewayTransactionId", request.getGatewayTransactionId()));
 
         if (!paymentTransaction.getOrderId().equals(request.getOrderId().trim())) {
@@ -161,9 +171,11 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private CreatePaymentResponse toCreatePaymentResponse(PaymentTransaction paymentTransaction) {
+        PaymentGateway gateway = paymentGatewayFactory.getGateway(paymentTransaction.getProvider());
+        String paymentUrl = gateway.buildPaymentUrl(paymentTransaction);
         return new CreatePaymentResponse(
                 paymentTransaction.getId(),
-                paymentGatewayService.buildRedirectUrl(paymentTransaction)
+                paymentUrl
         );
     }
 

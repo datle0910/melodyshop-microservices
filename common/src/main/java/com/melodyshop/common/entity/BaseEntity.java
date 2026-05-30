@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 public abstract class BaseEntity {
 
     @Id
-    @Column(length = 36, nullable = false, updatable = false)
+    @Column(columnDefinition = "VARCHAR(36)", nullable = false, updatable = false)
     private String id;
 
     @CreationTimestamp

@@ -2,6 +2,7 @@ package com.melodyshop.notification.controller;
 
 import com.melodyshop.notification.dto.EmailRequest;
 import com.melodyshop.notification.dto.OtpRequest;
+import com.melodyshop.notification.dto.WelcomeRequest;
 import com.melodyshop.notification.service.EmailService;
 import com.melodyshop.common.dto.ApiResponse;
 import jakarta.validation.Valid;
@@ -39,7 +40,7 @@ public class NotificationController {
     public ResponseEntity<ApiResponse<Map<String, String>>> sendOtp(
             @Valid @RequestBody OtpRequest request) {
 
-        String otp = emailService.sendOtp(request.getTo(), request.getRecipientName());
+        String otp = emailService.sendOtp(request.getTo(), request.getRecipientName(), request.getOtp());
         return ResponseEntity.ok(ApiResponse.<Map<String, String>>builder()
                 .success(true)
                 .message("OTP sent successfully")
@@ -52,17 +53,14 @@ public class NotificationController {
     }
 
     @PostMapping("/welcome")
-    public ResponseEntity<ApiResponse<Map<String, String>>> sendWelcome(
-            @RequestParam String email,
-            @RequestParam String fullName) {
-
-        emailService.sendWelcomeEmail(email, fullName);
+    public ResponseEntity<ApiResponse<Map<String, String>>> sendWelcome(@RequestBody WelcomeRequest request) {
+        emailService.sendWelcomeEmail(request.getEmail(), request.getFullName());
         return ResponseEntity.ok(ApiResponse.<Map<String, String>>builder()
                 .success(true)
                 .message("Welcome email sent successfully")
                 .data(Map.of(
                         "status", "sent",
-                        "to", email
+                        "to", request.getEmail()
                 ))
                 .build());
     }

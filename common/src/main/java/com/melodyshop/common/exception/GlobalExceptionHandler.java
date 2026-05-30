@@ -30,6 +30,37 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ex.getMessage(), "BAD_REQUEST"));
     }
 
+    @ExceptionHandler(ProductInOrderException.class)
+    public ResponseEntity<ApiResponse<Void>> handleProductInOrder(ProductInOrderException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ex.getMessage(), "PRODUCT_IN_ORDER"));
+    }
+
+    @ExceptionHandler(FeignClientException.class)
+    public ResponseEntity<ApiResponse<Void>> handleFeignClientException(FeignClientException ex) {
+        int status = ex.getStatus();
+        HttpStatus httpStatus;
+        String errorCode;
+        if (status == 400) {
+            httpStatus = HttpStatus.BAD_REQUEST;
+            errorCode = "BAD_REQUEST";
+        } else if (status == 401 || status == 403) {
+            httpStatus = HttpStatus.FORBIDDEN;
+            errorCode = "FORBIDDEN";
+        } else if (status == 404) {
+            httpStatus = HttpStatus.NOT_FOUND;
+            errorCode = "NOT_FOUND";
+        } else if (status == 409) {
+            httpStatus = HttpStatus.CONFLICT;
+            errorCode = "CONFLICT";
+        } else {
+            httpStatus = HttpStatus.BAD_GATEWAY;
+            errorCode = "BAD_GATEWAY";
+        }
+        return ResponseEntity.status(httpStatus)
+                .body(ApiResponse.error(ex.getMessage(), errorCode));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Map<String, String>>> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();

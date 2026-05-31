@@ -1,6 +1,9 @@
 #!/bin/sh
+set -eu
+
 JAVA_TOOL_OPTIONS=
 export JAVA_TOOL_OPTIONS
+
 exec java \
     -DsocksProxyHost= \
     -DsocksProxyPort= \

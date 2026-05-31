@@ -2,6 +2,7 @@ package com.melodyshop.notification.service.impl;
 
 import com.melodyshop.notification.dto.EmailRequest;
 import com.melodyshop.notification.service.EmailService;
+import com.melodyshop.common.exception.FeignClientException;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
@@ -50,8 +51,10 @@ public class EmailServiceImpl implements EmailService {
             log.info("Email sent to {} using template '{}'", request.getTo(), request.getTemplateName());
 
         } catch (Exception e) {
-            log.error("Failed to send email to {} — {}", request.getTo(), e.getMessage(), e);
-            throw new RuntimeException("Email sending failed: " + e.getMessage(), e);
+            log.error("Failed to send email to {} using template '{}': {}",
+                    request.getTo(), request.getTemplateName(), safeMailError(e));
+            throw new FeignClientException(502,
+                    "Khong the gui email luc nay. Vui long kiem tra cau hinh SMTP va thu lai.");
         }
     }
 
@@ -123,5 +126,14 @@ public class EmailServiceImpl implements EmailService {
         SecureRandom random = new SecureRandom();
         int otp = 100_000 + random.nextInt(900_000); // 6-digit OTP
         return String.valueOf(otp);
+    }
+
+    private String safeMailError(Exception e) {
+        String message = e.getMessage();
+        if (message == null || message.isBlank()) {
+            return e.getClass().getSimpleName();
+        }
+        return e.getClass().getSimpleName() + ": "
+                + message.replaceAll("(?i)(password|secret|token)=\\S+", "$1=<redacted>");
     }
 }

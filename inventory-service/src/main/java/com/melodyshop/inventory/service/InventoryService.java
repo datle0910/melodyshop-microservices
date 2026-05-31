@@ -95,12 +95,11 @@ public class InventoryService {
         int beforeQty = inventory.getQuantity();
         int beforeReserved = inventory.getReservedQuantity();
 
-        if (beforeReserved < request.getQuantity()) {
-            throw new BadRequestException("Số lượng deduct lớn hơn số lượng đã reserve");
-        }
+        // Safe deduction: deduct from reserved up to the available reserved amount
+        int deductReserved = Math.min(beforeReserved, request.getQuantity());
 
         inventory.setQuantity(beforeQty - request.getQuantity());
-        inventory.setReservedQuantity(beforeReserved - request.getQuantity());
+        inventory.setReservedQuantity(beforeReserved - deductReserved);
         inventoryRepository.save(inventory);
 
         createLog(inventory, "DEDUCT", -request.getQuantity(),
@@ -456,6 +455,16 @@ public class InventoryService {
         String warehouseName = warehouseRepository.findById(i.getWarehouseId())
                 .map(Warehouse::getName).orElse(null);
 
+        String productName = null;
+        try {
+            var response = productClient.getProductById(i.getProductId());
+            if (response != null && response.isSuccess() && response.getData() != null) {
+                productName = response.getData().getName();
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch product name for ID {}: {}", i.getProductId(), e.getMessage());
+        }
+
         return InventoryDTO.builder()
                 .id(i.getId())
                 .productId(i.getProductId())
@@ -463,6 +472,7 @@ public class InventoryService {
                 .sku(i.getSku())
                 .warehouseId(i.getWarehouseId())
                 .warehouseName(warehouseName)
+                .productName(productName)
                 .quantity(i.getQuantity())
                 .reservedQuantity(i.getReservedQuantity())
                 .availableQuantity(i.getAvailableQuantity())

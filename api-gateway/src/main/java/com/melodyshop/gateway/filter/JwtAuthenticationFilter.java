@@ -47,6 +47,8 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/engagement/swagger-ui",
             "/api/orders/has-orders",       // Internal service check
             "/api/orders/has-product-orders", // Internal service check
+            "/api/orders/guest",             // Public guest checkout endpoint
+            "/api/inventory/check",          // Public stock check endpoint
             "/api/media/proxy",              // Proxy image requests to bypass browser tracking prevention
             "/eureka"
     );

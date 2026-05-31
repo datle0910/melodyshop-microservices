@@ -269,6 +269,9 @@ public class OrderServiceImpl implements OrderService {
         // Send order confirmation email asynchronously (after order is committed)
         sendOrderConfirmationEmailAsync(order);
 
+        // Reserve stock
+        reserveInventory(order);
+
         log.info("Created guest order {}", order.getOrderNumber());
         return toDTO(order);
     }

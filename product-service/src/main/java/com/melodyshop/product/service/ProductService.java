@@ -1,6 +1,7 @@
 package com.melodyshop.product.service;
 
 import com.melodyshop.common.exception.BadRequestException;
+import com.melodyshop.common.dto.ApiResponse;
 import com.melodyshop.common.exception.ResourceNotFoundException;
 import com.melodyshop.product.dto.*;
 import com.melodyshop.product.entity.*;
@@ -132,6 +133,25 @@ public class ProductService {
                             v.getSku(), e.getMessage());
                 }
             }
+        } else {
+            // Tự động tạo biến thể mặc định nếu không khai báo biến thể
+            String defaultSku = (product.getSlug() + "-default").toUpperCase();
+            ProductVariant defaultVariant = ProductVariant.builder()
+                    .product(product)
+                    .variantName("Mặc định")
+                    .sku(defaultSku)
+                    .price(product.getBasePrice())
+                    .isActive(true)
+                    .build();
+            defaultVariant = variantRepository.save(defaultVariant);
+
+            // Khởi tạo kho với số lượng 0 cho biến thể mặc định
+            try {
+                inventoryClient.initInventory(product.getId(), defaultVariant.getId(), defaultVariant.getSku());
+            } catch (Exception e) {
+                log.error("Failed to initialize inventory for default SKU {}: {}",
+                        defaultVariant.getSku(), e.getMessage());
+            }
         }
 
         return toDTO(productRepository.findById(product.getId()).orElse(product));
@@ -167,7 +187,8 @@ public class ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm", "id", id));
 
         // Check if product has been ordered
-        boolean hasOrders = orderClient.hasOrdersByProductId(id);
+        ApiResponse<Boolean> orderResponse = orderClient.hasOrdersByProductId(id);
+        boolean hasOrders = orderResponse != null && Boolean.TRUE.equals(orderResponse.getData());
         if (hasOrders) {
             throw new ProductInOrderException("Khong the xoa san pham: san pham da co trong don hang");
         }

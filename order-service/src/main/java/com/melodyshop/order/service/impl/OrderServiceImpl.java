@@ -8,6 +8,7 @@ import com.melodyshop.order.client.CartClient;
 import com.melodyshop.order.client.InventoryClient;
 import com.melodyshop.order.client.NotificationClient;
 import com.melodyshop.order.client.PaymentClient;
+import com.melodyshop.order.client.ProductClient;
 import com.melodyshop.order.dto.*;
 import com.melodyshop.order.entity.Order;
 import com.melodyshop.order.entity.OrderItem;
@@ -43,6 +44,7 @@ public class OrderServiceImpl implements OrderService {
     private final PaymentClient paymentClient;
     private final NotificationClient notificationClient;
     private final CartClient cartClient;
+    private final ProductClient productClient;
 
     private static final BigDecimal DEFAULT_SHIPPING_FEE = new BigDecimal("50000.00");
 
@@ -70,6 +72,29 @@ public class OrderServiceImpl implements OrderService {
         List<OrderItem> orderItems = new ArrayList<>();
 
         for (OrderItemRequest itemReq : request.getItems()) {
+            // Auto-heal missing variantId and SKU from product-service
+            if (itemReq.getSku() == null || itemReq.getSku().isBlank()) {
+                try {
+                    ApiResponse<ProductClient.ProductDTO> prodResp = productClient.getProductById(itemReq.getProductId());
+                    if (prodResp != null && prodResp.isSuccess() && prodResp.getData() != null) {
+                        ProductClient.ProductDTO productData = prodResp.getData();
+                        if (productData.getVariants() != null && !productData.getVariants().isEmpty()) {
+                            ProductClient.ProductVariantDTO variant = productData.getVariants().stream()
+                                    .filter(v -> "Mặc định".equalsIgnoreCase(v.getVariantName()))
+                                    .findFirst()
+                                    .orElse(productData.getVariants().get(0));
+                            itemReq.setVariantId(variant.getId());
+                            itemReq.setVariantName(variant.getVariantName());
+                            itemReq.setSku(variant.getSku());
+                            log.info("Auto-healed missing SKU for product {}: SKU={}, variantId={}", 
+                                    itemReq.getProductName(), variant.getSku(), variant.getId());
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to auto-heal missing SKU for product ID {}: {}", itemReq.getProductId(), e.getMessage());
+                }
+            }
+
             // Check stock availability before creating order
             if (itemReq.getSku() != null && !itemReq.getSku().isBlank()) {
                 try {
@@ -193,6 +218,29 @@ public class OrderServiceImpl implements OrderService {
         List<OrderItem> orderItems = new ArrayList<>();
 
         for (OrderItemRequest itemReq : request.getItems()) {
+            // Auto-heal missing variantId and SKU from product-service
+            if (itemReq.getSku() == null || itemReq.getSku().isBlank()) {
+                try {
+                    ApiResponse<ProductClient.ProductDTO> prodResp = productClient.getProductById(itemReq.getProductId());
+                    if (prodResp != null && prodResp.isSuccess() && prodResp.getData() != null) {
+                        ProductClient.ProductDTO productData = prodResp.getData();
+                        if (productData.getVariants() != null && !productData.getVariants().isEmpty()) {
+                            ProductClient.ProductVariantDTO variant = productData.getVariants().stream()
+                                    .filter(v -> "Mặc định".equalsIgnoreCase(v.getVariantName()))
+                                    .findFirst()
+                                    .orElse(productData.getVariants().get(0));
+                            itemReq.setVariantId(variant.getId());
+                            itemReq.setVariantName(variant.getVariantName());
+                            itemReq.setSku(variant.getSku());
+                            log.info("Auto-healed missing SKU for guest product {}: SKU={}, variantId={}", 
+                                    itemReq.getProductName(), variant.getSku(), variant.getId());
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to auto-heal missing SKU for guest product ID {}: {}", itemReq.getProductId(), e.getMessage());
+                }
+            }
+
             // Check stock availability before creating guest order
             if (itemReq.getSku() != null && !itemReq.getSku().isBlank()) {
                 try {
@@ -268,6 +316,9 @@ public class OrderServiceImpl implements OrderService {
 
         // Send order confirmation email asynchronously (after order is committed)
         sendOrderConfirmationEmailAsync(order);
+
+        // Reserve stock
+        reserveInventory(order);
 
         log.info("Created guest order {}", order.getOrderNumber());
         return toDTO(order);
@@ -355,11 +406,13 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(OrderStatus.CANCELLED);
         order = orderRepository.save(order);
 
-        // Hoàn lại stock nếu đã bị trừ
+        // Hoàn lại stock nếu đã bị trừ, hoặc hủy reserve nếu chưa trừ
         if (Boolean.TRUE.equals(order.getStockDeducted())) {
             restoreInventory(order);
             order.setStockDeducted(false);
             orderRepository.save(order);
+        } else {
+            unreserveInventory(order);
         }
 
         createStatusHistory(orderId, oldStatus.name(), OrderStatus.CANCELLED.name(), reason, userId);
@@ -507,21 +560,25 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // CANCELLED: hoàn lại stock nếu đã trừ
+        // CANCELLED: hoàn lại stock nếu đã trừ, hoặc hủy reserve nếu chưa trừ
         if (newStatus == OrderStatus.CANCELLED) {
             if (Boolean.TRUE.equals(order.getStockDeducted())) {
                 restoreInventory(order);
                 order.setStockDeducted(false);
                 orderRepository.save(order);
+            } else {
+                unreserveInventory(order);
             }
         }
 
-        // REFUNDED: hoàn lại stock (khách đã nhận hàng nhưng được hoàn tiền)
+        // REFUNDED: hoàn lại stock (khách đã nhận hàng nhưng được hoàn tiền), hoặc hủy reserve nếu chưa trừ
         if (newStatus == OrderStatus.REFUNDED) {
             if (Boolean.TRUE.equals(order.getStockDeducted())) {
                 restoreInventory(order);
                 order.setStockDeducted(false);
                 orderRepository.save(order);
+            } else {
+                unreserveInventory(order);
             }
         }
     }

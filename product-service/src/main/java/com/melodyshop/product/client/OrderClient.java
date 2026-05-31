@@ -1,5 +1,6 @@
 package com.melodyshop.product.client;
 
+import com.melodyshop.common.dto.ApiResponse;
 import com.melodyshop.product.client.fallback.OrderClientFallback;
 import com.melodyshop.product.client.fallback.OrderClientFallbackFactory;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -9,5 +10,5 @@ import org.springframework.web.bind.annotation.*;
 public interface OrderClient {
 
     @GetMapping("/api/orders/has-product-orders")
-    boolean hasOrdersByProductId(@RequestParam("productId") String productId);
+    ApiResponse<Boolean> hasOrdersByProductId(@RequestParam("productId") String productId);
 }

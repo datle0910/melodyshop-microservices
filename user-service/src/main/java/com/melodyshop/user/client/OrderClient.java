@@ -1,4 +1,5 @@
 package com.melodyshop.user.client;
+import com.melodyshop.common.dto.ApiResponse;
 
 import com.melodyshop.user.client.fallback.OrderClientFallback;
 import com.melodyshop.user.client.fallback.OrderClientFallbackFactory;
@@ -9,5 +10,5 @@ import org.springframework.web.bind.annotation.*;
 public interface OrderClient {
 
     @GetMapping("/api/orders/has-orders")
-    boolean hasOrdersByUserId(@RequestParam("userId") String userId);
+    ApiResponse<Boolean> hasOrdersByUserId(@RequestParam("userId") String userId);
 }

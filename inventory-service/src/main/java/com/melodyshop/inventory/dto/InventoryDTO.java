@@ -12,6 +12,7 @@ public class InventoryDTO {
     private String sku;
     private String warehouseId;
     private String warehouseName;
+    private String productName;
     private Integer quantity;
     private Integer reservedQuantity;
     private Integer availableQuantity;

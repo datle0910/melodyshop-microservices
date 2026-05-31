@@ -406,11 +406,13 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(OrderStatus.CANCELLED);
         order = orderRepository.save(order);
 
-        // Hoàn lại stock nếu đã bị trừ
+        // Hoàn lại stock nếu đã bị trừ, hoặc hủy reserve nếu chưa trừ
         if (Boolean.TRUE.equals(order.getStockDeducted())) {
             restoreInventory(order);
             order.setStockDeducted(false);
             orderRepository.save(order);
+        } else {
+            unreserveInventory(order);
         }
 
         createStatusHistory(orderId, oldStatus.name(), OrderStatus.CANCELLED.name(), reason, userId);
@@ -558,21 +560,25 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // CANCELLED: hoàn lại stock nếu đã trừ
+        // CANCELLED: hoàn lại stock nếu đã trừ, hoặc hủy reserve nếu chưa trừ
         if (newStatus == OrderStatus.CANCELLED) {
             if (Boolean.TRUE.equals(order.getStockDeducted())) {
                 restoreInventory(order);
                 order.setStockDeducted(false);
                 orderRepository.save(order);
+            } else {
+                unreserveInventory(order);
             }
         }
 
-        // REFUNDED: hoàn lại stock (khách đã nhận hàng nhưng được hoàn tiền)
+        // REFUNDED: hoàn lại stock (khách đã nhận hàng nhưng được hoàn tiền), hoặc hủy reserve nếu chưa trừ
         if (newStatus == OrderStatus.REFUNDED) {
             if (Boolean.TRUE.equals(order.getStockDeducted())) {
                 restoreInventory(order);
                 order.setStockDeducted(false);
                 orderRepository.save(order);
+            } else {
+                unreserveInventory(order);
             }
         }
     }

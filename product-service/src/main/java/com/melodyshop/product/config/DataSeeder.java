@@ -4,9 +4,12 @@ import com.melodyshop.product.entity.Brand;
 import com.melodyshop.product.entity.Category;
 import com.melodyshop.product.entity.Product;
 import com.melodyshop.product.entity.ProductImage;
+import com.melodyshop.product.entity.ProductVariant;
 import com.melodyshop.product.repository.BrandRepository;
 import com.melodyshop.product.repository.CategoryRepository;
 import com.melodyshop.product.repository.ProductRepository;
+import com.melodyshop.product.repository.ProductVariantRepository;
+import com.melodyshop.product.client.InventoryClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -26,27 +29,31 @@ public class DataSeeder implements CommandLineRunner {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final BrandRepository brandRepository;
+    private final ProductVariantRepository variantRepository;
+    private final InventoryClient inventoryClient;
 
     @Override
     @Transactional
     public void run(String... args) {
-        if (productRepository.count() > 0) {
-            log.info("Database already seeded with products. Skipping...");
-            return;
+        if (productRepository.count() == 0) {
+            log.info("Seeding initial data for Product Service...");
+
+            // 1. Seed Categories
+            Map<String, Category> cats = seedCategories();
+            
+            // 2. Seed Brands
+            Map<String, Brand> brands = seedBrands();
+
+            // 3. Seed Products
+            seedProducts(cats, brands);
+
+            log.info("Successfully seeded 20 products with images!");
+        } else {
+            log.info("Database already seeded with products. Skipping initial seeding...");
         }
 
-        log.info("Seeding initial data for Product Service...");
-
-        // 1. Seed Categories
-        Map<String, Category> cats = seedCategories();
-        
-        // 2. Seed Brands
-        Map<String, Brand> brands = seedBrands();
-
-        // 3. Seed Products
-        seedProducts(cats, brands);
-
-        log.info("Successfully seeded 20 products with images!");
+        // Always ensure all products have default variants and are registered in warehouse
+        ensureAllProductsHaveVariantsAndInventory();
     }
 
     private Map<String, Category> seedCategories() {
@@ -193,6 +200,16 @@ public class DataSeeder implements CommandLineRunner {
                 .specs("{}")
                 .build();
 
+        // Tự động tạo biến thể mặc định cho sản phẩm được seed
+        ProductVariant variant = ProductVariant.builder()
+                .product(product)
+                .variantName("Mặc định")
+                .sku((slug + "-default").toUpperCase())
+                .price(BigDecimal.valueOf(price))
+                .isActive(true)
+                .build();
+        product.getVariants().add(variant);
+
         ProductImage image = ProductImage.builder()
                 .product(product)
                 .imageUrl(imageUrl)
@@ -203,5 +220,83 @@ public class DataSeeder implements CommandLineRunner {
 
         product.getImages().add(image);
         return product;
+    }
+
+    /**
+     * Tự động chạy vá dữ liệu: Đảm bảo toàn bộ sản phẩm hiện có đều có biến thể mặc định
+     * và được tạo sẵn bản ghi kho hàng (số lượng 0).
+     */
+    public void ensureAllProductsHaveVariantsAndInventory() {
+        log.info("[Self-Healing] Checking database products and variants status...");
+        List<Product> allProducts = productRepository.findAll();
+        List<ProductVariant> newVariants = new ArrayList<>();
+
+        for (Product product : allProducts) {
+            // Nếu sản phẩm chưa có biến thể nào, tạo biến thể mặc định
+            if (product.getVariants() == null || product.getVariants().isEmpty()) {
+                String defaultSku = (product.getSlug() + "-default").toUpperCase();
+                if (!variantRepository.existsBySku(defaultSku)) {
+                    ProductVariant defaultVariant = ProductVariant.builder()
+                            .product(product)
+                            .variantName("Mặc định")
+                            .sku(defaultSku)
+                            .price(product.getBasePrice())
+                            .isActive(true)
+                            .build();
+                    product.getVariants().add(defaultVariant);
+                    newVariants.add(defaultVariant);
+                    log.info("[Self-Healing] Created default variant for product: {}", product.getName());
+                }
+            }
+        }
+
+        if (!newVariants.isEmpty()) {
+            variantRepository.saveAll(newVariants);
+        }
+
+        // Khởi động luồng chạy nền để gọi initInventory cho tất cả biến thể
+        // (Tránh block quá trình startup của product-service khi gọi qua Eureka)
+        new Thread(() -> {
+            log.info("[Self-Healing] Starting background thread for inventory initialization...");
+            try {
+                // Đợi 10 giây để các service khác đăng ký xong trên Eureka
+                Thread.sleep(10000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+
+            List<Product> products = productRepository.findAll();
+            for (Product p : products) {
+                for (ProductVariant v : p.getVariants()) {
+                    initInventoryWithRetry(p.getId(), v.getId(), v.getSku());
+                }
+            }
+            log.info("[Self-Healing] Background inventory initialization completed!");
+        }).start();
+    }
+
+    private void initInventoryWithRetry(String productId, String variantId, String sku) {
+        int maxAttempts = 10;
+        int delayMs = 3000;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                inventoryClient.initInventory(productId, variantId, sku);
+                log.info("[Self-Healing] Successfully initialized inventory for SKU: {} (attempt {})", sku, attempt);
+                return;
+            } catch (Exception e) {
+                if (attempt == maxAttempts) {
+                    log.error("[Self-Healing] Failed to initialize inventory for SKU: {} after {} attempts: {}", sku, maxAttempts, e.getMessage());
+                } else {
+                    log.debug("[Self-Healing] Attempt {} failed for SKU: {}. Retrying in {}ms...", attempt, sku, delayMs);
+                    try {
+                        Thread.sleep(delayMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+            }
+        }
     }
 }

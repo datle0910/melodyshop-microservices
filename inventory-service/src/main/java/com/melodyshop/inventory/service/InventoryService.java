@@ -167,7 +167,7 @@ public class InventoryService {
     }
 
     /**
-     * Khởi tạo kho cho sản phẩm mới (số lượng 20).
+     * Khởi tạo kho cho sản phẩm mới (số lượng 0).
      */
     @Transactional
     public void initInventory(String productId, String variantId, String sku) {
@@ -180,12 +180,12 @@ public class InventoryService {
                 .variantId(variantId)
                 .sku(sku)
                 .warehouseId(DEFAULT_WAREHOUSE)
-                .quantity(20)
+                .quantity(0)
                 .reservedQuantity(0)
                 .reorderPoint(10)
                 .build();
         inventoryRepository.save(inventory);
-        log.info("Initialized inventory for SKU: {} with 20 items", sku);
+        log.info("Initialized inventory for SKU: {} with 0 items", sku);
     }
 
     /**

@@ -133,6 +133,25 @@ public class ProductService {
                             v.getSku(), e.getMessage());
                 }
             }
+        } else {
+            // Tự động tạo biến thể mặc định nếu không khai báo biến thể
+            String defaultSku = (product.getSlug() + "-default").toUpperCase();
+            ProductVariant defaultVariant = ProductVariant.builder()
+                    .product(product)
+                    .variantName("Mặc định")
+                    .sku(defaultSku)
+                    .price(product.getBasePrice())
+                    .isActive(true)
+                    .build();
+            defaultVariant = variantRepository.save(defaultVariant);
+
+            // Khởi tạo kho với số lượng 0 cho biến thể mặc định
+            try {
+                inventoryClient.initInventory(product.getId(), defaultVariant.getId(), defaultVariant.getSku());
+            } catch (Exception e) {
+                log.error("Failed to initialize inventory for default SKU {}: {}",
+                        defaultVariant.getSku(), e.getMessage());
+            }
         }
 
         return toDTO(productRepository.findById(product.getId()).orElse(product));

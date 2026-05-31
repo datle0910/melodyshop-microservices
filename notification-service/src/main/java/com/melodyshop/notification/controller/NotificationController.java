@@ -40,14 +40,13 @@ public class NotificationController {
     public ResponseEntity<ApiResponse<Map<String, String>>> sendOtp(
             @Valid @RequestBody OtpRequest request) {
 
-        String otp = emailService.sendOtp(request.getTo(), request.getRecipientName(), request.getOtp());
+        emailService.sendOtp(request.getTo(), request.getRecipientName(), request.getOtp());
         return ResponseEntity.ok(ApiResponse.<Map<String, String>>builder()
                 .success(true)
                 .message("OTP sent successfully")
                 .data(Map.of(
                         "status", "sent",
-                        "to", request.getTo(),
-                        "otp", otp
+                        "to", request.getTo()
                 ))
                 .build());
     }

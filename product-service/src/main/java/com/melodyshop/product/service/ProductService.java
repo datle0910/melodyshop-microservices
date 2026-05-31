@@ -1,6 +1,7 @@
 package com.melodyshop.product.service;
 
 import com.melodyshop.common.exception.BadRequestException;
+import com.melodyshop.common.dto.ApiResponse;
 import com.melodyshop.common.exception.ResourceNotFoundException;
 import com.melodyshop.product.dto.*;
 import com.melodyshop.product.entity.*;
@@ -167,7 +168,8 @@ public class ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm", "id", id));
 
         // Check if product has been ordered
-        boolean hasOrders = orderClient.hasOrdersByProductId(id);
+        ApiResponse<Boolean> orderResponse = orderClient.hasOrdersByProductId(id);
+        boolean hasOrders = orderResponse != null && Boolean.TRUE.equals(orderResponse.getData());
         if (hasOrders) {
             throw new ProductInOrderException("Khong the xoa san pham: san pham da co trong don hang");
         }

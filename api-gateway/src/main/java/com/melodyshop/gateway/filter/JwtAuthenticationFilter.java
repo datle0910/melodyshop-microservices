@@ -31,9 +31,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     private String jwtSecret;
 
     /**
-     * Endpoints that bypass JWT check.
-     * Keep auth endpoints, payment webhook, docs endpoints,
-     * and public catalog endpoints from both branches.
+     * Endpoints that bypass JWT check for any HTTP method.
      */
     private static final List<String> PUBLIC_ENDPOINTS = List.of(
             "/api/auth/login",
@@ -47,21 +45,28 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/payments/swagger-ui",
             "/api/engagement/v3/api-docs",
             "/api/engagement/swagger-ui",
-            "/api/products",     // Allow public catalog browsing
-            "/api/categories",   // Allow category listing
-            "/api/brands",       // Allow brand listing
             "/api/orders/has-orders",       // Internal service check
             "/api/orders/has-product-orders", // Internal service check
             "/api/media/proxy",              // Proxy image requests to bypass browser tracking prevention
             "/eureka"
     );
 
+    /**
+     * Endpoints that bypass JWT check ONLY for GET and OPTIONS HTTP methods.
+     */
+    private static final List<String> PUBLIC_GET_ONLY_ENDPOINTS = List.of(
+            "/api/products",     // Allow public catalog browsing
+            "/api/categories",   // Allow category listing
+            "/api/brands"        // Allow brand listing
+    );
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
+        String method = request.getMethod() != null ? request.getMethod().name() : "";
 
-        if (isPublicEndpoint(path)) {
+        if (isPublicEndpoint(path, method)) {
             return chain.filter(exchange);
         }
 
@@ -92,7 +97,12 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         }
     }
 
-    private boolean isPublicEndpoint(String path) {
+    private boolean isPublicEndpoint(String path, String method) {
+        if ("GET".equalsIgnoreCase(method) || "OPTIONS".equalsIgnoreCase(method)) {
+            if (PUBLIC_GET_ONLY_ENDPOINTS.stream().anyMatch(path::startsWith)) {
+                return true;
+            }
+        }
         return PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith);
     }
 

@@ -1,6 +1,7 @@
 package com.melodyshop.user.service;
 
 import com.melodyshop.common.exception.BadRequestException;
+import com.melodyshop.common.dto.ApiResponse;
 import com.melodyshop.user.client.AuthClient;
 import com.melodyshop.user.client.OrderClient;
 import com.melodyshop.user.dto.UpdateProfileRequest;
@@ -55,9 +56,12 @@ public class UserProfileService {
         profile.setPhone(request.getPhone());
 
         if (avatar != null && !avatar.isEmpty()) {
-            Map<String, Object> uploadResult = mediaServiceClient.uploadFile("avatar", avatar);
-            if (uploadResult != null && uploadResult.containsKey("url")) {
-                profile.setAvatarUrl((String) uploadResult.get("url"));
+            ApiResponse<Map<String, Object>> uploadResponse = mediaServiceClient.uploadFile("avatar", avatar);
+            if (uploadResponse != null && uploadResponse.isSuccess() && uploadResponse.getData() != null) {
+                Map<String, Object> uploadResult = uploadResponse.getData();
+                if (uploadResult.containsKey("url")) {
+                    profile.setAvatarUrl((String) uploadResult.get("url"));
+                }
             }
         } else if (request.getAvatarUrl() != null) {
             profile.setAvatarUrl(request.getAvatarUrl());
@@ -144,7 +148,8 @@ public class UserProfileService {
 
     @Transactional
     public void deleteUser(String userId) {
-        boolean hasOrders = orderClient.hasOrdersByUserId(userId);
+        ApiResponse<Boolean> orderResponse = orderClient.hasOrdersByUserId(userId);
+        boolean hasOrders = orderResponse != null && Boolean.TRUE.equals(orderResponse.getData());
         if (hasOrders) {
             throw new BadRequestException("Khong the xoa tai khoan: nguoi dung da co don hang trong he thong");
         }

@@ -1,5 +1,6 @@
 package com.melodyshop.user.client;
 
+import com.melodyshop.common.dto.ApiResponse;
 import com.melodyshop.user.config.feign.MediaServiceClientFallbackFactory;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.MediaType;
@@ -14,6 +15,6 @@ import java.util.Map;
 public interface MediaServiceClient {
 
     @PostMapping(value = "/api/media/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    Map<String, Object> uploadFile(@RequestParam("type") String type, @RequestPart("file") MultipartFile file);
+    ApiResponse<Map<String, Object>> uploadFile(@RequestParam("type") String type, @RequestPart("file") MultipartFile file);
 
 }

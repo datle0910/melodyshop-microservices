@@ -243,6 +243,7 @@ public class DataSeeder implements CommandLineRunner {
                             .price(product.getBasePrice())
                             .isActive(true)
                             .build();
+                    defaultVariant.setId(java.util.UUID.randomUUID().toString());
                     product.getVariants().add(defaultVariant);
                     newVariants.add(defaultVariant);
                     log.info("[Self-Healing] Created default variant for product: {}", product.getName());
@@ -252,6 +253,16 @@ public class DataSeeder implements CommandLineRunner {
 
         if (!newVariants.isEmpty()) {
             variantRepository.saveAll(newVariants);
+        }
+
+        // Collect SKU info for inventory initialization while still in the transactional session
+        List<SkuInventoryInfo> skuInfos = new ArrayList<>();
+        for (Product p : allProducts) {
+            if (p.getVariants() != null) {
+                for (ProductVariant v : p.getVariants()) {
+                    skuInfos.add(new SkuInventoryInfo(p.getId(), v.getId(), v.getSku()));
+                }
+            }
         }
 
         // Khởi động luồng chạy nền để gọi initInventory cho tất cả biến thể
@@ -266,11 +277,8 @@ public class DataSeeder implements CommandLineRunner {
                 return;
             }
 
-            List<Product> products = productRepository.findAll();
-            for (Product p : products) {
-                for (ProductVariant v : p.getVariants()) {
-                    initInventoryWithRetry(p.getId(), v.getId(), v.getSku());
-                }
+            for (SkuInventoryInfo info : skuInfos) {
+                initInventoryWithRetry(info.getProductId(), info.getVariantId(), info.getSku());
             }
             log.info("[Self-Healing] Background inventory initialization completed!");
         }).start();
@@ -298,5 +306,21 @@ public class DataSeeder implements CommandLineRunner {
                 }
             }
         }
+    }
+
+    private static class SkuInventoryInfo {
+        private final String productId;
+        private final String variantId;
+        private final String sku;
+
+        public SkuInventoryInfo(String productId, String variantId, String sku) {
+            this.productId = productId;
+            this.variantId = variantId;
+            this.sku = sku;
+        }
+
+        public String getProductId() { return productId; }
+        public String getVariantId() { return variantId; }
+        public String getSku() { return sku; }
     }
 }

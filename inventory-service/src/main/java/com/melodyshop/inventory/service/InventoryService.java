@@ -61,6 +61,9 @@ public class InventoryService {
                 .findBySkuAndWarehouseIdForUpdate(request.getSku(), DEFAULT_WAREHOUSE)
                 .orElseThrow(() -> new ResourceNotFoundException("Tồn kho", "sku", request.getSku()));
 
+        if (alreadyProcessed(inventory, "RESERVE", request.getOrderId())) {
+            return toDTO(inventory);
+        }
         int available = inventory.getAvailableQuantity();
         if (available < request.getQuantity()) {
             throw new BadRequestException(
@@ -92,14 +95,20 @@ public class InventoryService {
                 .findBySkuAndWarehouseIdForUpdate(request.getSku(), DEFAULT_WAREHOUSE)
                 .orElseThrow(() -> new ResourceNotFoundException("Tồn kho", "sku", request.getSku()));
 
+        if (alreadyProcessed(inventory, "DEDUCT", request.getOrderId())) {
+            return toDTO(inventory);
+        }
         int beforeQty = inventory.getQuantity();
         int beforeReserved = inventory.getReservedQuantity();
 
-        // Safe deduction: deduct from reserved up to the available reserved amount
-        int deductReserved = Math.min(beforeReserved, request.getQuantity());
+        if (beforeQty < request.getQuantity() || beforeReserved < request.getQuantity()) {
+            throw new BadRequestException(
+                    String.format("Cannot deduct unreserved stock. SKU: %s, requested: %d, quantity: %d, reserved: %d",
+                            request.getSku(), request.getQuantity(), beforeQty, beforeReserved));
+        }
 
         inventory.setQuantity(beforeQty - request.getQuantity());
-        inventory.setReservedQuantity(beforeReserved - deductReserved);
+        inventory.setReservedQuantity(beforeReserved - request.getQuantity());
         inventoryRepository.save(inventory);
 
         createLog(inventory, "DEDUCT", -request.getQuantity(),
@@ -121,8 +130,16 @@ public class InventoryService {
                 .findBySkuAndWarehouseIdForUpdate(request.getSku(), DEFAULT_WAREHOUSE)
                 .orElseThrow(() -> new ResourceNotFoundException("Tồn kho", "sku", request.getSku()));
 
+        if (alreadyProcessed(inventory, "UNRESERVE", request.getOrderId())) {
+            return toDTO(inventory);
+        }
         int before = inventory.getReservedQuantity();
-        int unreserveQty = Math.min(request.getQuantity(), before);
+        if (before < request.getQuantity()) {
+            throw new BadRequestException(
+                    String.format("Cannot release missing reservation. SKU: %s, requested: %d, reserved: %d",
+                            request.getSku(), request.getQuantity(), before));
+        }
+        int unreserveQty = request.getQuantity();
 
         inventory.setReservedQuantity(before - unreserveQty);
         inventoryRepository.save(inventory);
@@ -147,6 +164,9 @@ public class InventoryService {
                 .findBySkuAndWarehouseIdForUpdate(request.getSku(), DEFAULT_WAREHOUSE)
                 .orElseThrow(() -> new ResourceNotFoundException("Tồn kho", "sku", request.getSku()));
 
+        if (alreadyProcessed(inventory, "RESTORE", request.getOrderId())) {
+            return toDTO(inventory);
+        }
         int beforeQty = inventory.getQuantity();
         int beforeReserved = inventory.getReservedQuantity();
 
@@ -435,6 +455,11 @@ public class InventoryService {
     }
 
     // ==================== Private helpers ====================
+
+    private boolean alreadyProcessed(Inventory inventory, String action, String referenceId) {
+        return referenceId != null
+                && logRepository.existsByInventoryIdAndActionAndReferenceId(inventory.getId(), action, referenceId);
+    }
 
     private void createLog(Inventory inventory, String action, int change,
                            int before, int after, String refId, String note, String userId) {

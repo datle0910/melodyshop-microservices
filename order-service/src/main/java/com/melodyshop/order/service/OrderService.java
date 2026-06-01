@@ -6,6 +6,7 @@ import com.melodyshop.order.enums.OrderStatus;
 import org.springframework.data.domain.Pageable;
 
 public interface OrderService {
+    CheckoutQuoteDTO quoteOrder(CheckoutQuoteRequest request);
     OrderDTO createOrder(String userId, CreateOrderRequest request);
     OrderDTO createGuestOrder(GuestCreateOrderRequest request);
     OrderDTO getOrderById(String orderId);
@@ -21,4 +22,6 @@ public interface OrderService {
     boolean hasOrdersByUserId(String userId);
     boolean hasOrdersByProductId(String productId);
     OrderDTO updatePaymentStatus(String orderId, String changedBy);
+    void handlePaymentSuccess(String orderId, String paymentId);
+    void handlePaymentFailure(String orderId, String paymentId, boolean expired);
 }

@@ -25,7 +25,6 @@ public class OrderItemRequest {
     @Min(value = 1, message = "So luong phai lon hon 0")
     private Integer quantity;
 
-    @NotNull(message = "Don gia khong duoc de trong")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Don gia phai lon hon 0")
+    // Accepted for backward compatibility only. Order pricing is resolved from product-service.
     private BigDecimal unitPrice;
 }

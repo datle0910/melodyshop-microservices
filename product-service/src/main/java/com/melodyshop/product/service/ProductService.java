@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -175,7 +176,8 @@ public class ProductService {
         if (request.getIsFeatured() != null) product.setIsFeatured(request.getIsFeatured());
 
         product = productRepository.save(product);
-        return toDTO(product);
+        updateVariants(product, request.getVariants());
+        return toDTO(productRepository.findById(product.getId()).orElse(product));
     }
 
     /**
@@ -307,6 +309,85 @@ public class ProductService {
                 .availableQuantity(stockInfo != null ? stockInfo.getAvailableQuantity() : null)
                 .lowStock(stockInfo != null ? stockInfo.getLowStock() : null)
                 .build();
+    }
+
+    private void updateVariants(Product product, List<ProductVariantDTO> requestedVariants) {
+        List<ProductVariant> existingVariants = product.getVariants();
+        ProductVariant generatedDefault = isGeneratedDefaultOnly(existingVariants)
+                ? existingVariants.get(0)
+                : null;
+
+        if (generatedDefault != null) {
+            generatedDefault.setPrice(product.getBasePrice());
+            variantRepository.save(generatedDefault);
+            if (requestedVariants == null || requestedVariants.size() <= 1) {
+                return;
+            }
+        }
+
+        if (requestedVariants == null) {
+            return;
+        }
+
+        for (ProductVariantDTO requested : requestedVariants) {
+            ProductVariant variant = findExistingVariant(existingVariants, requested);
+            if (variant == generatedDefault) {
+                continue;
+            }
+            if (variant == null) {
+                addVariant(product, requested);
+                continue;
+            }
+            if (!Objects.equals(variant.getSku(), requested.getSku())) {
+                throw new BadRequestException("Cannot change SKU for an existing product variant");
+            }
+            variant.setVariantName(requested.getVariantName());
+            variant.setPrice(requested.getPrice());
+            variant.setColor(requested.getColor());
+            variant.setSize(requested.getSize());
+            if (requested.getIsActive() != null) {
+                variant.setIsActive(requested.getIsActive());
+            }
+            variantRepository.save(variant);
+        }
+    }
+
+    private ProductVariant findExistingVariant(List<ProductVariant> variants, ProductVariantDTO requested) {
+        return variants.stream()
+                .filter(variant -> requested.getId() != null
+                        ? Objects.equals(variant.getId(), requested.getId())
+                        : Objects.equals(variant.getSku(), requested.getSku()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private void addVariant(Product product, ProductVariantDTO requested) {
+        if (requested.getId() != null || variantRepository.existsBySku(requested.getSku())) {
+            throw new BadRequestException("SKU da ton tai: " + requested.getSku());
+        }
+        ProductVariant variant = ProductVariant.builder()
+                .product(product)
+                .variantName(requested.getVariantName())
+                .sku(requested.getSku())
+                .price(requested.getPrice())
+                .color(requested.getColor())
+                .size(requested.getSize())
+                .isActive(requested.getIsActive() != null ? requested.getIsActive() : true)
+                .build();
+        variant = variantRepository.save(variant);
+        product.getVariants().add(variant);
+        try {
+            inventoryClient.initInventory(product.getId(), variant.getId(), variant.getSku());
+        } catch (Exception e) {
+            log.error("Failed to initialize inventory for SKU {}: {}", variant.getSku(), e.getMessage());
+        }
+    }
+
+    private boolean isGeneratedDefaultOnly(List<ProductVariant> variants) {
+        return variants != null
+                && variants.size() == 1
+                && variants.get(0).getSku() != null
+                && variants.get(0).getSku().toUpperCase().endsWith("-DEFAULT");
     }
 
     private ProductImageDTO toImageDTO(ProductImage i) {

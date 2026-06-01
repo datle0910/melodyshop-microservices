@@ -12,7 +12,8 @@ import org.springframework.stereotype.Component;
 public class PaymentClientFallback implements PaymentClient {
 
     @Override
-    public ApiResponse<CreatePaymentResponse> createPayment(CreatePaymentRequest request) {
+    public ApiResponse<CreatePaymentResponse> createPayment(
+            String internalToken, String userId, String idempotencyKey, CreatePaymentRequest request) {
         log.warn("Fallback activated for createPayment - orderId: {}", request != null ? request.getOrderId() : "null");
         return ApiResponse.<CreatePaymentResponse>error("Payment service temporarily unavailable");
     }

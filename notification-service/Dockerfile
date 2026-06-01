@@ -18,5 +18,5 @@ COPY --from=extract /app/snapshot-dependencies/ ./
 COPY --from=extract /app/application/ ./
 EXPOSE 8085
 COPY notification-service/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]

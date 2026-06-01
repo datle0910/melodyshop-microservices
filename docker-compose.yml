@@ -289,12 +289,12 @@ services:
     container_name: melodyshop-notification
     ports:
       - "8085:8085"
-    env_file:
-      - .env
     environment:
       EUREKA_HOST: eureka-server
       SPRING_PROFILES_ACTIVE: dev
       LOGSTASH_HOST: ${LOGSTASH_HOST:-}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_APP_PASSWORD: ${MAIL_APP_PASSWORD}
       no_proxy: "smtp.gmail.com,localhost,127.0.0.1"
       NO_PROXY: "smtp.gmail.com,localhost,127.0.0.1"
       HTTP_PROXY: ""
@@ -393,6 +393,13 @@ services:
       PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-payment_webhook_secret}
       PAYMENT_GATEWAY_REDIRECT_BASE_URL: ${PAYMENT_GATEWAY_REDIRECT_BASE_URL:-http://fake-gateway/pay}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      PAYMENT_INTERNAL_SERVICE_TOKEN: ${PAYMENT_INTERNAL_SERVICE_TOKEN:-melodyshop-payment-internal-dev}
+      VIETQR_BANK_CODE: ${VIETQR_BANK_CODE:-VCB}
+      VIETQR_BANK_NAME: ${VIETQR_BANK_NAME:-Vietcombank}
+      VIETQR_ACCOUNT_NUMBER: ${VIETQR_ACCOUNT_NUMBER:-0123456789}
+      VIETQR_ACCOUNT_NAME: ${VIETQR_ACCOUNT_NAME:-MELODYSHOP}
+      VIETQR_QR_BASE_URL: ${VIETQR_QR_BASE_URL:-https://qr.sepay.vn/img}
+      VIETQR_PAYMENT_EXPIRE_MINUTES: ${VIETQR_PAYMENT_EXPIRE_MINUTES:-30}
       EUREKA_HOST: eureka-server
       SPRING_PROFILES_ACTIVE: dev
     deploy:
@@ -486,6 +493,7 @@ services:
       DB_USERNAME: ${DB_USERNAME:-melodyshop}
       DB_PASSWORD: ${DB_PASSWORD:-melodyshop_secret_2024}
       ORDER_DB_NAME: ${ORDER_DB_NAME:-order_db}
+      PAYMENT_INTERNAL_SERVICE_TOKEN: ${PAYMENT_INTERNAL_SERVICE_TOKEN:-melodyshop-payment-internal-dev}
       EUREKA_HOST: eureka-server
       SPRING_PROFILES_ACTIVE: dev
     deploy:

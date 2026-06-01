@@ -22,6 +22,8 @@ public class CreatePaymentRequest {
     private String currency;
 
     private String provider;
+    private String paymentMethod;
+    private String orderNumber;
 
     public CreatePaymentRequest() {
     }
@@ -62,5 +64,21 @@ public class CreatePaymentRequest {
 
     public void setProvider(String provider) {
         this.provider = provider;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
+
+    public String getOrderNumber() {
+        return orderNumber;
+    }
+
+    public void setOrderNumber(String orderNumber) {
+        this.orderNumber = orderNumber;
     }
 }

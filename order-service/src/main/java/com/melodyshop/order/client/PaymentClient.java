@@ -11,7 +11,11 @@ import org.springframework.web.bind.annotation.*;
 public interface PaymentClient {
 
     @PostMapping("/api/payments")
-    ApiResponse<CreatePaymentResponse> createPayment(@RequestBody CreatePaymentRequest request);
+    ApiResponse<CreatePaymentResponse> createPayment(
+            @RequestHeader("X-Internal-Service-Token") String internalToken,
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @RequestBody CreatePaymentRequest request);
 
     @GetMapping("/api/payments/{paymentId}")
     ApiResponse<Object> getPaymentStatus(@PathVariable("paymentId") String paymentId);

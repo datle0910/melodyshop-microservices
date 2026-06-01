@@ -12,7 +12,10 @@ public class CartClientFallbackFactory implements FallbackFactory<CartClient> {
 
     @Override
     public CartClient create(Throwable cause) {
-        log.error("CartClient fallback triggered due to: {}", cause.getMessage(), cause);
-        return new CartClientFallback();
+        String reason = cause != null && cause.getMessage() != null
+                ? cause.getMessage()
+                : "unknown error";
+        log.error("CartClient fallback triggered due to: {}", reason, cause);
+        return new CartClientFallback(reason);
     }
 }

@@ -8,7 +8,9 @@ import com.melodyshop.cart.entity.Cart;
 import com.melodyshop.cart.entity.CartItem;
 import com.melodyshop.cart.repository.CartItemRepository;
 import com.melodyshop.cart.repository.CartRepository;
+import com.melodyshop.cart.client.ProductClient;
 import com.melodyshop.cart.service.CartService;
+import com.melodyshop.common.dto.ApiResponse;
 import com.melodyshop.common.exception.BadRequestException;
 import com.melodyshop.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -29,11 +31,13 @@ public class CartServiceImpl implements CartService {
 
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
+    private final ProductClient productClient;
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public CartDTO getCartByUserId(String userId) {
         Cart cart = getOrCreateCart(userId);
+        refreshCartPrices(cart);
         return toDTO(cart);
     }
 
@@ -54,8 +58,11 @@ public class CartServiceImpl implements CartService {
         if (existingItem.isPresent()) {
             item = existingItem.get();
             item.setQuantity(item.getQuantity() + request.getQuantity());
+            if (request.getUnitPrice() != null) {
+                item.setUnitPrice(request.getUnitPrice());
+            }
             item = cartItemRepository.save(item);
-            log.info("Updated cart item {} quantity to {}", item.getId(), item.getQuantity());
+            log.info("Updated cart item {} quantity to {} and price to {}", item.getId(), item.getQuantity(), item.getUnitPrice());
         } else {
             item = CartItem.builder()
                     .cart(cart)
@@ -141,6 +148,49 @@ public class CartServiceImpl implements CartService {
             addToCart(userId, item);
         }
         return toDTO(cartRepository.findById(cart.getId()).orElse(cart));
+    }
+
+    private void refreshCartPrices(Cart cart) {
+        List<CartItem> items = cartItemRepository.findByCartIdOrderByCreatedAtAsc(cart.getId());
+        if (items.isEmpty()) {
+            return;
+        }
+
+        boolean updated = false;
+        for (CartItem item : items) {
+            try {
+                ApiResponse<ProductClient.ProductDTO> response = productClient.getProductById(item.getProductId());
+                if (response != null && response.getData() != null) {
+                    ProductClient.ProductDTO product = response.getData();
+                    BigDecimal latestPrice = product.getBasePrice();
+
+                    // If variant is selected, get variant price
+                    if (item.getVariantId() != null && !item.getVariantId().isBlank()) {
+                        if (product.getVariants() != null) {
+                            Optional<ProductClient.ProductVariantDTO> variantOpt = product.getVariants().stream()
+                                    .filter(v -> v.getId().equals(item.getVariantId()))
+                                    .findFirst();
+                            if (variantOpt.isPresent()) {
+                                latestPrice = variantOpt.get().getPrice();
+                            }
+                        }
+                    }
+
+                    if (latestPrice != null && latestPrice.compareTo(item.getUnitPrice()) != 0) {
+                        log.info("Updating price for cart item {} from {} to {}", item.getId(), item.getUnitPrice(), latestPrice);
+                        item.setUnitPrice(latestPrice);
+                        cartItemRepository.save(item);
+                        updated = true;
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Failed to fetch latest price for product {} from product-service: {}", item.getProductId(), e.getMessage());
+            }
+        }
+
+        if (updated) {
+            recalculateCartTotal(cart);
+        }
     }
 
     private Cart getOrCreateCart(String userId) {

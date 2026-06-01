@@ -41,3 +41,6 @@ management:
 logging:
   level:
     com.melodyshop.order: DEBUG
+
+internal:
+  service-token: ${PAYMENT_INTERNAL_SERVICE_TOKEN:melodyshop-payment-internal-dev}

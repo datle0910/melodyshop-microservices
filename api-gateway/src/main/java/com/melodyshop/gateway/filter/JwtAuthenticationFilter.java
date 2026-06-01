@@ -47,6 +47,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/engagement/swagger-ui",
             "/api/orders/has-orders",       // Internal service check
             "/api/orders/has-product-orders", // Internal service check
+            "/api/orders/quote",             // Public authoritative checkout quote
             "/api/orders/guest",             // Public guest checkout endpoint
             "/api/inventory/check",          // Public stock check endpoint
             "/api/media/proxy",              // Proxy image requests to bypass browser tracking prevention
@@ -82,13 +83,18 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
         try {
             Claims claims = validateToken(token);
+            String role = claims.get("role", String.class);
+            if (path.startsWith("/api/admin/") && !isAdmin(role)) {
+                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                return exchange.getResponse().setComplete();
+            }
 
             ServerHttpRequest modifiedRequest = request.mutate()
                     .header("X-User-Id", claims.getSubject())
                     .header("X-User-Email", claims.get("email", String.class))
                     .header("X-User-FullName", claims.get("fullName", String.class))
                     .header("X-User-Phone", claims.get("phone", String.class))
-                    .header("X-User-Role", claims.get("role", String.class))
+                    .header("X-User-Role", role)
                     .build();
 
             return chain.filter(exchange.mutate().request(modifiedRequest).build());
@@ -115,6 +121,10 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    private boolean isAdmin(String role) {
+        return "ADMIN".equalsIgnoreCase(role) || "ROLE_ADMIN".equalsIgnoreCase(role);
     }
 
     @Override

@@ -1,30 +1,36 @@
 package com.melodyshop.payment.dto;
 
-public class CreatePaymentResponse {
-    private String paymentId;
-    private String redirectUrl;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-    public CreatePaymentResponse() {
-    }
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class CreatePaymentResponse {
+    private String orderId;
+    private String paymentId;
+    private String paymentStatus;
+    private String paymentMethod;
+    private BigDecimal amount;
+    private String currency;
+    private String redirectUrl;
+    private String bankCode;
+    private String bankName;
+    private String accountNumber;
+    private String accountName;
+    private String transferContent;
+    private String qrCode;
+    private String qrUrl;
+    private LocalDateTime expiredAt;
 
     public CreatePaymentResponse(String paymentId, String redirectUrl) {
         this.paymentId = paymentId;
-        this.redirectUrl = redirectUrl;
-    }
-
-    public String getPaymentId() {
-        return paymentId;
-    }
-
-    public void setPaymentId(String paymentId) {
-        this.paymentId = paymentId;
-    }
-
-    public String getRedirectUrl() {
-        return redirectUrl;
-    }
-
-    public void setRedirectUrl(String redirectUrl) {
         this.redirectUrl = redirectUrl;
     }
 }

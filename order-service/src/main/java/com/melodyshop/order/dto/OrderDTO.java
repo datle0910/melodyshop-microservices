@@ -20,6 +20,7 @@ public class OrderDTO {
     private String userId;
     private String orderNumber;
     private OrderStatus status;
+    private OrderStatus orderStatus;
     private String shippingFullName;
     private String shippingPhone;
     private String shippingAddress;
@@ -35,6 +36,15 @@ public class OrderDTO {
     private PaymentMethod paymentMethod;
     private String paymentId;
     private String paymentUrl;
+    private String paymentStatus;
+    private String currency;
+    private String bankCode;
+    private String bankName;
+    private String accountNumber;
+    private String accountName;
+    private String transferContent;
+    private String qrUrl;
+    private LocalDateTime expiredAt;
     private Boolean isPaid;
     private LocalDateTime paidAt;
     private Boolean stockDeducted;

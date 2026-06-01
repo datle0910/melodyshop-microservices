@@ -21,6 +21,12 @@ public class OrderController {
 
     private final OrderService orderService;
 
+    @PostMapping("/quote")
+    public ResponseEntity<ApiResponse<CheckoutQuoteDTO>> quoteOrder(
+            @Valid @RequestBody CheckoutQuoteRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(orderService.quoteOrder(request)));
+    }
+
     @PostMapping
     public ResponseEntity<ApiResponse<OrderDTO>> createOrder(
             @RequestHeader("X-User-Id") String userId,

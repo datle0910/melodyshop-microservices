@@ -1,11 +1,14 @@
 package com.melodyshop.order.service.impl;
 
 import com.melodyshop.common.dto.PageResponse;
+import com.melodyshop.common.dto.ApiResponse;
 import com.melodyshop.common.exception.BadRequestException;
 import com.melodyshop.common.exception.ResourceNotFoundException;
 import com.melodyshop.order.client.InventoryClient;
+import com.melodyshop.order.client.CartClient;
 import com.melodyshop.order.client.NotificationClient;
 import com.melodyshop.order.client.PaymentClient;
+import com.melodyshop.order.client.ProductClient;
 import com.melodyshop.order.dto.*;
 import com.melodyshop.order.entity.Order;
 import com.melodyshop.order.entity.OrderItem;
@@ -18,6 +21,7 @@ import com.melodyshop.order.repository.OrderStatusHistoryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -33,7 +37,10 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -48,9 +55,13 @@ class OrderServiceImplTest {
     @Mock
     private InventoryClient inventoryClient;
     @Mock
+    private CartClient cartClient;
+    @Mock
     private PaymentClient paymentClient;
     @Mock
     private NotificationClient notificationClient;
+    @Mock
+    private ProductClient productClient;
 
     @InjectMocks
     private OrderServiceImpl orderService;
@@ -75,6 +86,7 @@ class OrderServiceImplTest {
         createOrderRequest.setShippingAddress("123 Duong ABC, Quan 1");
         createOrderRequest.setPaymentMethod(PaymentMethod.COD);
         createOrderRequest.setItems(List.of(itemReq));
+        createOrderRequest.setExpectedTotal(new BigDecimal("25050000"));
 
         OrderItem orderItem = OrderItem.builder()
                 .productId("prod-001")
@@ -100,6 +112,28 @@ class OrderServiceImplTest {
                 .build();
         order.setId("order-001");
         orderItem.setOrder(order);
+
+        ProductClient.ProductVariantDTO variant = ProductClient.ProductVariantDTO.builder()
+                .id("variant-001")
+                .variantName("Default")
+                .sku("SKU-001")
+                .price(new BigDecimal("25000000"))
+                .build();
+        ProductClient.ProductDTO product = ProductClient.ProductDTO.builder()
+                .id("prod-001")
+                .name("Fender Stratocaster")
+                .basePrice(new BigDecimal("25000000"))
+                .variants(List.of(variant))
+                .build();
+        StockCheckResponse stock = StockCheckResponse.builder()
+                .sku("SKU-001")
+                .availableQuantity(5)
+                .inStock(true)
+                .build();
+        lenient().when(productClient.getProductById("prod-001")).thenReturn(ApiResponse.ok(product));
+        lenient().when(inventoryClient.checkStock(anyString(), anyInt())).thenReturn(ApiResponse.ok(stock));
+        lenient().when(inventoryClient.reserveStock(any())).thenReturn(ApiResponse.<Void>ok(null));
+        lenient().when(inventoryClient.unreserveStock(any())).thenReturn(ApiResponse.<Void>ok(null));
     }
 
     @Test
@@ -123,6 +157,120 @@ class OrderServiceImplTest {
     }
 
     @Test
+    void quoteOrder_shouldUseAuthoritativeVariantPriceWhenCartSnapshotIsStale() {
+        ProductClient.ProductVariantDTO variant = ProductClient.ProductVariantDTO.builder()
+                .id("variant-001")
+                .variantName("Default")
+                .sku("SKU-001")
+                .price(new BigDecimal("52000000"))
+                .build();
+        ProductClient.ProductDTO product = ProductClient.ProductDTO.builder()
+                .id("prod-001")
+                .name("Yamaha Clavinova CLP-745")
+                .basePrice(new BigDecimal("2000"))
+                .variants(List.of(variant))
+                .build();
+        when(productClient.getProductById("prod-001")).thenReturn(ApiResponse.ok(product));
+        createOrderRequest.getItems().get(0).setUnitPrice(new BigDecimal("2000"));
+
+        CheckoutQuoteRequest quoteRequest = new CheckoutQuoteRequest();
+        quoteRequest.setItems(createOrderRequest.getItems());
+
+        CheckoutQuoteDTO result = orderService.quoteOrder(quoteRequest);
+
+        assertEquals(new BigDecimal("52000000"), result.getSubtotal());
+        assertEquals(new BigDecimal("50000.00"), result.getShippingFee());
+        assertEquals(new BigDecimal("52050000.00"), result.getTotal());
+        assertEquals(new BigDecimal("52000000"), result.getItems().get(0).getUnitPrice());
+    }
+
+    @Test
+    void quoteOrder_shouldUseUpdatedAuthoritativePrice() {
+        ProductClient.ProductVariantDTO variant = ProductClient.ProductVariantDTO.builder()
+                .id("variant-001")
+                .variantName("Default")
+                .sku("SKU-001")
+                .price(new BigDecimal("2000"))
+                .build();
+        ProductClient.ProductDTO product = ProductClient.ProductDTO.builder()
+                .id("prod-001")
+                .name("Yamaha Clavinova CLP-745")
+                .basePrice(new BigDecimal("52000000"))
+                .variants(List.of(variant))
+                .build();
+        when(productClient.getProductById("prod-001")).thenReturn(ApiResponse.ok(product));
+
+        CheckoutQuoteRequest quoteRequest = new CheckoutQuoteRequest();
+        quoteRequest.setItems(createOrderRequest.getItems());
+
+        CheckoutQuoteDTO result = orderService.quoteOrder(quoteRequest);
+
+        assertEquals(new BigDecimal("2000"), result.getSubtotal());
+        assertEquals(new BigDecimal("52000.00"), result.getTotal());
+    }
+
+    @Test
+    void quoteOrder_shouldRejectUnsupportedVoucher() {
+        CheckoutQuoteRequest quoteRequest = new CheckoutQuoteRequest();
+        quoteRequest.setItems(createOrderRequest.getItems());
+        quoteRequest.setVoucherCode("SALE10");
+
+        assertThrows(BadRequestException.class, () -> orderService.quoteOrder(quoteRequest));
+        verifyNoInteractions(productClient);
+    }
+
+    @Test
+    void createOrder_shouldIgnoreTamperedClientUnitPrice() {
+        createOrderRequest.getItems().get(0).setUnitPrice(BigDecimal.ONE);
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> {
+            Order o = inv.getArgument(0);
+            o.setId("order-001");
+            return o;
+        });
+        when(statusHistoryRepository.save(any(OrderStatusHistory.class))).thenReturn(new OrderStatusHistory());
+
+        OrderDTO result = orderService.createOrder(userId, createOrderRequest);
+
+        assertEquals(0, new BigDecimal("25000000").compareTo(result.getSubtotal()));
+        assertEquals(0, new BigDecimal("25050000").compareTo(result.getTotalAmount()));
+        assertEquals(0, new BigDecimal("25000000").compareTo(result.getItems().get(0).getUnitPrice()));
+    }
+
+    @Test
+    void createOrder_withVietQr_shouldSendAuthoritativeTotalWhenClientUnitPriceIsTampered() {
+        createOrderRequest.setPaymentMethod(PaymentMethod.VIETQR);
+        createOrderRequest.getItems().get(0).setUnitPrice(BigDecimal.ONE);
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> {
+            Order o = inv.getArgument(0);
+            o.setId("order-001");
+            return o;
+        });
+        when(statusHistoryRepository.save(any(OrderStatusHistory.class))).thenReturn(new OrderStatusHistory());
+        when(paymentClient.createPayment(nullable(String.class), eq(userId), anyString(), any()))
+                .thenReturn(ApiResponse.ok(CreatePaymentResponse.builder()
+                        .paymentId("payment-001")
+                        .amount(new BigDecimal("25050000"))
+                        .currency("VND")
+                        .build()));
+
+        orderService.createOrder(userId, createOrderRequest);
+
+        ArgumentCaptor<CreatePaymentRequest> paymentRequest = ArgumentCaptor.forClass(CreatePaymentRequest.class);
+        verify(paymentClient).createPayment(nullable(String.class), eq(userId), anyString(), paymentRequest.capture());
+        assertEquals(0, new BigDecimal("25050000").compareTo(paymentRequest.getValue().getAmount()));
+        assertEquals(PaymentMethod.VIETQR, paymentRequest.getValue().getPaymentMethod());
+    }
+
+    @Test
+    void createOrder_shouldRejectStaleCheckoutQuote() {
+        createOrderRequest.setExpectedTotal(new BigDecimal("52000"));
+
+        assertThrows(BadRequestException.class, () ->
+                orderService.createOrder(userId, createOrderRequest));
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
     void createOrder_withOnlinePayment_shouldThrowWhenPaymentFails() {
         createOrderRequest.setPaymentMethod(PaymentMethod.E_WALLET);
         createOrderRequest.getItems().get(0).setSku("SKU-001");
@@ -132,7 +280,7 @@ class OrderServiceImplTest {
             o.setId("order-001");
             return o;
         });
-        when(paymentClient.createPayment(any())).thenReturn(null);
+        when(paymentClient.createPayment(nullable(String.class), anyString(), anyString(), any())).thenReturn(null);
 
         assertThrows(BadRequestException.class, () ->
                 orderService.createOrder(userId, createOrderRequest));
@@ -334,5 +482,93 @@ class OrderServiceImplTest {
         assertNotNull(result);
         assertEquals(1, result.getContent().size());
         assertEquals(OrderStatus.PENDING, result.getContent().get(0).getStatus());
+    }
+
+    @Test
+    void handlePaymentSuccess_whenRetried_shouldDeductAndClearCartOnlyOnce() {
+        order.setStatus(OrderStatus.PENDING_PAYMENT);
+        order.setPaymentId("pay-001");
+        order.getItems().get(0).setSku("SKU-001");
+        when(orderRepository.findByIdWithItemsForUpdate("order-001")).thenReturn(Optional.of(order));
+        when(inventoryClient.deductStock(any())).thenReturn(ApiResponse.<Void>ok(null));
+        when(cartClient.clearCart(userId)).thenReturn(ApiResponse.<Void>ok(null));
+
+        orderService.handlePaymentSuccess("order-001", "pay-001");
+        orderService.handlePaymentSuccess("order-001", "pay-001");
+
+        assertEquals(OrderStatus.CONFIRMED, order.getStatus());
+        assertTrue(order.getIsPaid());
+        assertTrue(order.getStockDeducted());
+        verify(inventoryClient, times(1)).deductStock(any());
+        verify(cartClient, times(1)).clearCart(userId);
+    }
+
+    @Test
+    void handlePaymentSuccess_whenCartClearReturnsError_shouldStillConfirmOrder() {
+        order.setStatus(OrderStatus.PENDING_PAYMENT);
+        order.setPaymentId("pay-001");
+        order.getItems().get(0).setSku("SKU-001");
+        when(orderRepository.findByIdWithItemsForUpdate("order-001")).thenReturn(Optional.of(order));
+        when(inventoryClient.deductStock(any())).thenReturn(ApiResponse.<Void>ok(null));
+        when(cartClient.clearCart(userId)).thenReturn(ApiResponse.error("Cart service temporarily unavailable"));
+
+        assertDoesNotThrow(() -> orderService.handlePaymentSuccess("order-001", "pay-001"));
+
+        assertEquals(OrderStatus.CONFIRMED, order.getStatus());
+        assertTrue(order.getIsPaid());
+        assertTrue(order.getStockDeducted());
+        verify(inventoryClient).deductStock(any());
+        verify(cartClient).clearCart(userId);
+    }
+
+    @Test
+    void handlePaymentSuccess_whenCartClearThrows_shouldStillConfirmOrder() {
+        order.setStatus(OrderStatus.PENDING_PAYMENT);
+        order.setPaymentId("pay-001");
+        order.getItems().get(0).setSku("SKU-001");
+        when(orderRepository.findByIdWithItemsForUpdate("order-001")).thenReturn(Optional.of(order));
+        when(inventoryClient.deductStock(any())).thenReturn(ApiResponse.<Void>ok(null));
+        when(cartClient.clearCart(userId)).thenThrow(new RuntimeException("cart timeout"));
+
+        assertDoesNotThrow(() -> orderService.handlePaymentSuccess("order-001", "pay-001"));
+
+        assertEquals(OrderStatus.CONFIRMED, order.getStatus());
+        assertTrue(order.getIsPaid());
+        assertTrue(order.getStockDeducted());
+        verify(inventoryClient).deductStock(any());
+        verify(cartClient).clearCart(userId);
+    }
+
+    @Test
+    void handlePaymentSuccess_whenUserIdIsEmpty_shouldSkipCartClear() {
+        order.setStatus(OrderStatus.PENDING_PAYMENT);
+        order.setPaymentId("pay-001");
+        order.setUserId(null);
+        order.getItems().get(0).setSku("SKU-001");
+        when(orderRepository.findByIdWithItemsForUpdate("order-001")).thenReturn(Optional.of(order));
+        when(inventoryClient.deductStock(any())).thenReturn(ApiResponse.<Void>ok(null));
+
+        assertDoesNotThrow(() -> orderService.handlePaymentSuccess("order-001", "pay-001"));
+
+        assertEquals(OrderStatus.CONFIRMED, order.getStatus());
+        assertTrue(order.getIsPaid());
+        assertTrue(order.getStockDeducted());
+        verify(inventoryClient).deductStock(any());
+        verifyNoInteractions(cartClient);
+    }
+
+    @Test
+    void handlePaymentFailure_whenRetried_shouldReleaseReservationOnlyOnce() {
+        order.setStatus(OrderStatus.PENDING_PAYMENT);
+        order.setPaymentId("pay-002");
+        order.getItems().get(0).setSku("SKU-001");
+        when(orderRepository.findByIdWithItemsForUpdate("order-001")).thenReturn(Optional.of(order));
+        when(inventoryClient.unreserveStock(any())).thenReturn(ApiResponse.<Void>ok(null));
+
+        orderService.handlePaymentFailure("order-001", "pay-002", true);
+        orderService.handlePaymentFailure("order-001", "pay-002", true);
+
+        assertEquals(OrderStatus.EXPIRED, order.getStatus());
+        verify(inventoryClient, times(1)).unreserveStock(any());
     }
 }

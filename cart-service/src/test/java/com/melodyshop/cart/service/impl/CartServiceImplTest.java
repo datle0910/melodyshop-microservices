@@ -1,5 +1,6 @@
 package com.melodyshop.cart.service.impl;
 
+import com.melodyshop.cart.client.ProductClient;
 import com.melodyshop.cart.dto.AddToCartRequest;
 import com.melodyshop.cart.dto.CartDTO;
 import com.melodyshop.cart.dto.CartItemDTO;
@@ -8,6 +9,7 @@ import com.melodyshop.cart.entity.Cart;
 import com.melodyshop.cart.entity.CartItem;
 import com.melodyshop.cart.repository.CartItemRepository;
 import com.melodyshop.cart.repository.CartRepository;
+import com.melodyshop.common.dto.ApiResponse;
 import com.melodyshop.common.exception.BadRequestException;
 import com.melodyshop.common.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +30,7 @@ class CartServiceImplTest {
 
     private CartRepository cartRepository;
     private CartItemRepository cartItemRepository;
+    private ProductClient productClient;
     private CartServiceImpl cartService;
 
     private String userId;
@@ -37,7 +40,8 @@ class CartServiceImplTest {
     void setUp() {
         cartRepository = mock(CartRepository.class);
         cartItemRepository = mock(CartItemRepository.class);
-        cartService = new CartServiceImpl(cartRepository, cartItemRepository);
+        productClient = mock(ProductClient.class);
+        cartService = new CartServiceImpl(cartRepository, cartItemRepository, productClient);
 
         userId = "user-001";
         cart = Cart.builder()
@@ -258,5 +262,30 @@ class CartServiceImplTest {
         assertDoesNotThrow(() -> cartService.clearCart(userId));
         verify(cartItemRepository).deleteAllByCartId("cart-001");
         verify(cartRepository).save(any(Cart.class));
+    }
+
+    @Test
+    void getCartByUserId_withOutdatedPrices_shouldSyncPricesAndRecalculate() {
+        CartItem outdatedItem = item("item-001", 10);
+        outdatedItem.setUnitPrice(new BigDecimal("2000000")); // Stored price: 2 million
+
+        ProductClient.ProductDTO productDTO = ProductClient.ProductDTO.builder()
+                .id("prod-001")
+                .name("Product A")
+                .basePrice(new BigDecimal("1000000")) // Updated price: 1 million
+                .variants(new ArrayList<>())
+                .build();
+
+        when(cartRepository.findByUserId(userId)).thenReturn(Optional.of(cart));
+        when(cartItemRepository.findByCartIdOrderByCreatedAtAsc("cart-001"))
+                .thenReturn(new ArrayList<>(List.of(outdatedItem)));
+        when(productClient.getProductById("prod-001")).thenReturn(ApiResponse.ok(productDTO));
+
+        CartDTO result = cartService.getCartByUserId(userId);
+
+        assertNotNull(result);
+        verify(cartItemRepository).save(outdatedItem);
+        assertEquals(new BigDecimal("1000000"), outdatedItem.getUnitPrice());
+        assertEquals(new BigDecimal("10000000"), cart.getTotalAmount()); // 10 * 1 million = 10 million
     }
 }

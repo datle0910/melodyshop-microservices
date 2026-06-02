@@ -1,5 +1,6 @@
 package com.melodyshop.cart.service.impl;
 
+import com.melodyshop.cart.client.ProductClient;
 import com.melodyshop.cart.dto.AddToCartRequest;
 import com.melodyshop.cart.dto.CartDTO;
 import com.melodyshop.cart.dto.CartItemDTO;
@@ -8,7 +9,6 @@ import com.melodyshop.cart.entity.Cart;
 import com.melodyshop.cart.entity.CartItem;
 import com.melodyshop.cart.repository.CartItemRepository;
 import com.melodyshop.cart.repository.CartRepository;
-import com.melodyshop.cart.client.ProductClient;
 import com.melodyshop.cart.service.CartService;
 import com.melodyshop.common.dto.ApiResponse;
 import com.melodyshop.common.exception.BadRequestException;
@@ -46,6 +46,42 @@ public class CartServiceImpl implements CartService {
     public CartItemDTO addToCart(String userId, AddToCartRequest request) {
         Cart cart = getOrCreateCart(userId);
 
+        // Fetch current price from product service
+        BigDecimal currentPrice = request.getUnitPrice();
+        try {
+            ApiResponse<ProductClient.ProductDTO> prodResp = productClient.getProductById(request.getProductId());
+            if (prodResp != null && prodResp.isSuccess() && prodResp.getData() != null) {
+                ProductClient.ProductDTO product = prodResp.getData();
+                if (request.getVariantId() != null && !request.getVariantId().isBlank()) {
+                    // Find price by variant
+                    ProductClient.ProductVariantDTO variant = product.getVariants().stream()
+                            .filter(v -> v.getId().equals(request.getVariantId()))
+                            .findFirst()
+                            .orElse(null);
+                    if (variant != null && variant.getPrice() != null) {
+                        currentPrice = variant.getPrice();
+                        log.info("Fetched current variant price {} for product {}", currentPrice, request.getProductId());
+                    }
+                } else if (request.getSku() != null && !request.getSku().isBlank()) {
+                    // Find price by SKU
+                    ProductClient.ProductVariantDTO variant = product.getVariants().stream()
+                            .filter(v -> request.getSku().equals(v.getSku()))
+                            .findFirst()
+                            .orElse(null);
+                    if (variant != null && variant.getPrice() != null) {
+                        currentPrice = variant.getPrice();
+                        log.info("Fetched current SKU price {} for product {}", currentPrice, request.getProductId());
+                    }
+                }
+                if (currentPrice.equals(request.getUnitPrice()) && product.getBasePrice() != null) {
+                    currentPrice = product.getBasePrice();
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to fetch current price for product {}: {}, using provided price", 
+                    request.getProductId(), e.getMessage());
+        }
+
         Optional<CartItem> existingItem;
         if (request.getVariantId() != null && !request.getVariantId().isBlank()) {
             existingItem = cartItemRepository.findByCartIdAndProductIdAndVariantId(
@@ -57,12 +93,14 @@ public class CartServiceImpl implements CartService {
         CartItem item;
         if (existingItem.isPresent()) {
             item = existingItem.get();
+            // Update price to current price when quantity changes
+            item.setUnitPrice(currentPrice);
             item.setQuantity(item.getQuantity() + request.getQuantity());
             if (request.getUnitPrice() != null) {
                 item.setUnitPrice(request.getUnitPrice());
             }
             item = cartItemRepository.save(item);
-            log.info("Updated cart item {} quantity to {} and price to {}", item.getId(), item.getQuantity(), item.getUnitPrice());
+            log.info("Updated cart item {} quantity to {} with price {}", item.getId(), item.getQuantity(), currentPrice);
         } else {
             item = CartItem.builder()
                     .cart(cart)
@@ -72,11 +110,11 @@ public class CartServiceImpl implements CartService {
                     .variantId(request.getVariantId())
                     .variantName(request.getVariantName())
                     .sku(request.getSku())
-                    .unitPrice(request.getUnitPrice())
+                    .unitPrice(currentPrice)
                     .quantity(request.getQuantity())
                     .build();
             item = cartItemRepository.save(item);
-            log.info("Added new item {} to cart {}", item.getId(), cart.getId());
+            log.info("Added new item {} to cart {} with price {}", item.getId(), cart.getId(), currentPrice);
         }
 
         recalculateCartTotal(cart);
@@ -102,11 +140,43 @@ public class CartServiceImpl implements CartService {
             return null;
         }
 
+        // Fetch current price when updating quantity
+        BigDecimal originalPrice = item.getUnitPrice();
+        final BigDecimal[] currentPrice = {originalPrice};
+        try {
+            ApiResponse<ProductClient.ProductDTO> prodResp = productClient.getProductById(item.getProductId());
+            if (prodResp != null && prodResp.isSuccess() && prodResp.getData() != null) {
+                ProductClient.ProductDTO product = prodResp.getData();
+                if (item.getVariantId() != null && !item.getVariantId().isBlank()) {
+                    String variantId = item.getVariantId();
+                    ProductClient.ProductVariantDTO variant = product.getVariants().stream()
+                            .filter(v -> v.getId().equals(variantId))
+                            .findFirst()
+                            .orElse(null);
+                    if (variant != null && variant.getPrice() != null) {
+                        currentPrice[0] = variant.getPrice();
+                    }
+                } else if (item.getSku() != null && !item.getSku().isBlank()) {
+                    String sku = item.getSku();
+                    ProductClient.ProductVariantDTO variant = product.getVariants().stream()
+                            .filter(v -> sku.equals(v.getSku()))
+                            .findFirst()
+                            .orElse(null);
+                    if (variant != null && variant.getPrice() != null) {
+                        currentPrice[0] = variant.getPrice();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to fetch current price for product {}: {}", item.getProductId(), e.getMessage());
+        }
+
         item.setQuantity(request.getQuantity());
+        item.setUnitPrice(currentPrice[0]);
         item = cartItemRepository.save(item);
         recalculateCartTotal(cart);
 
-        log.info("Updated cart item {} quantity to {}", itemId, request.getQuantity());
+        log.info("Updated cart item {} quantity to {} with price {}", itemId, request.getQuantity(), currentPrice[0]);
         return toItemDTO(item);
     }
 
@@ -191,6 +261,48 @@ public class CartServiceImpl implements CartService {
         if (updated) {
             recalculateCartTotal(cart);
         }
+    }
+
+    @Override
+    @Transactional
+    public CartDTO syncCartPrices(String userId) {
+        Cart cart = getOrCreateCart(userId);
+        List<CartItem> items = cartItemRepository.findByCartIdOrderByCreatedAtAsc(cart.getId());
+        
+        for (CartItem item : items) {
+            try {
+                ApiResponse<ProductClient.ProductDTO> prodResp = productClient.getProductById(item.getProductId());
+                if (prodResp != null && prodResp.isSuccess() && prodResp.getData() != null) {
+                    ProductClient.ProductDTO product = prodResp.getData();
+                    BigDecimal newPrice = null;
+                    
+                    if (item.getVariantId() != null && !item.getVariantId().isBlank()) {
+                        ProductClient.ProductVariantDTO variant = product.getVariants().stream()
+                                .filter(v -> v.getId().equals(item.getVariantId()))
+                                .findFirst()
+                                .orElse(null);
+                        if (variant != null) newPrice = variant.getPrice();
+                    } else if (item.getSku() != null && !item.getSku().isBlank()) {
+                        ProductClient.ProductVariantDTO variant = product.getVariants().stream()
+                                .filter(v -> item.getSku().equals(v.getSku()))
+                                .findFirst()
+                                .orElse(null);
+                        if (variant != null) newPrice = variant.getPrice();
+                    }
+                    
+                    if (newPrice != null && !newPrice.equals(item.getUnitPrice())) {
+                        item.setUnitPrice(newPrice);
+                        cartItemRepository.save(item);
+                        log.info("Synced price for cart item {}: {} -> {}", item.getId(), item.getUnitPrice(), newPrice);
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Failed to sync price for product {}: {}", item.getProductId(), e.getMessage());
+            }
+        }
+        
+        recalculateCartTotal(cart);
+        return toDTO(cart);
     }
 
     private Cart getOrCreateCart(String userId) {

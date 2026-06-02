@@ -51,6 +51,8 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/orders/guest",             // Public guest checkout endpoint
             "/api/inventory/check",          // Public stock check endpoint
             "/api/media/proxy",              // Proxy image requests to bypass browser tracking prevention
+            "/api/ai/",                      // AI Chat - public for all users
+            "/api/ai/v1/",                   // AI Chat v1 - public for all users
             "/eureka"
     );
 

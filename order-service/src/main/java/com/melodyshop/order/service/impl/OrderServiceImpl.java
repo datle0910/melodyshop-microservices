@@ -354,6 +354,12 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public PageResponse<OrderDTO> getOrdersByUserIdAndStatus(String userId, OrderStatus status, Pageable pageable) {
+        Page<Order> page = orderRepository.findByUserIdAndStatusOrderByCreatedAtDesc(userId, status, pageable);
+        return toPageResponse(page);
+    }
+
+    @Override
     public PageResponse<OrderDTO> getAllOrders(Pageable pageable) {
         Page<Order> page = orderRepository.findAllByOrderByCreatedAtDesc(pageable);
         return toPageResponse(page);

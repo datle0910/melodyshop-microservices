@@ -13,6 +13,7 @@ public interface OrderService {
     OrderDTO getOrderByIdAndUserId(String orderId, String userId);
     OrderDTO getOrderByNumber(String orderNumber);
     PageResponse<OrderDTO> getOrdersByUserId(String userId, Pageable pageable);
+    PageResponse<OrderDTO> getOrdersByUserIdAndStatus(String userId, OrderStatus status, Pageable pageable);
     PageResponse<OrderDTO> getAllOrders(Pageable pageable);
     PageResponse<OrderDTO> getOrdersByStatus(OrderStatus status, Pageable pageable);
     OrderDTO updateOrderStatus(String orderId, String changedBy, UpdateOrderStatusRequest request);

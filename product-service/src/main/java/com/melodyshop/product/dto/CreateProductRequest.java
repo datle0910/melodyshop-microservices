@@ -31,4 +31,7 @@ public class CreateProductRequest {
 
     @Valid
     private List<ProductVariantDTO> variants;
+
+    @Valid
+    private List<ProductImageDTO> images;
 }

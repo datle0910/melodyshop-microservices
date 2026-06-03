@@ -107,6 +107,11 @@ public class ProductService {
 
         product = productRepository.save(product);
 
+        // Lưu hình ảnh nếu có
+        if (request.getImages() != null && !request.getImages().isEmpty()) {
+            saveProductImages(product, request.getImages());
+        }
+
         // Tạo các biến thể nếu có
         if (request.getVariants() != null && !request.getVariants().isEmpty()) {
             for (ProductVariantDTO v : request.getVariants()) {
@@ -173,7 +178,20 @@ public class ProductService {
         if (request.getCategoryId() != null) product.setCategoryId(request.getCategoryId());
         if (request.getBrandId() != null) product.setBrandId(request.getBrandId());
         if (request.getSpecs() != null) product.setSpecs(request.getSpecs());
-        if (request.getIsFeatured() != null) product.setIsFeatured(request.getIsFeatured());
+        if (request.getIsFeatured() != null)         product.setIsFeatured(request.getIsFeatured());
+
+        // Cập nhật hình ảnh nếu có
+        if (request.getImages() != null) {
+            // Xóa ảnh cũ
+            List<ProductImage> oldImages = product.getImages();
+            if (oldImages != null && !oldImages.isEmpty()) {
+                imageRepository.deleteAll(oldImages);
+            }
+            // Lưu ảnh mới
+            if (!request.getImages().isEmpty()) {
+                saveProductImages(product, request.getImages());
+            }
+        }
 
         product = productRepository.save(product);
         updateVariants(product, request.getVariants());
@@ -390,6 +408,21 @@ public class ProductService {
                 && variants.get(0).getSku().toUpperCase().endsWith("-DEFAULT");
     }
 
+    private void saveProductImages(Product product, List<ProductImageDTO> imageDTOs) {
+        int order = 0;
+        for (ProductImageDTO dto : imageDTOs) {
+            ProductImage image = ProductImage.builder()
+                    .product(product)
+                    .imageUrl(dto.getImageUrl())
+                    .altText(dto.getAltText())
+                    .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : order)
+                    .isPrimary(dto.getIsPrimary() != null ? dto.getIsPrimary() : (order == 0))
+                    .build();
+            imageRepository.save(image);
+            product.getImages().add(image);
+            order++;
+        }
+    }
     private ProductImageDTO toImageDTO(ProductImage i) {
         return ProductImageDTO.builder()
                 .id(i.getId())

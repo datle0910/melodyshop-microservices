@@ -37,6 +37,9 @@ class CustomerEngagementServiceTest {
     @Mock
     private WishlistItemRepository wishlistItemRepository;
 
+    @Mock
+    private com.melodyshop.engagement.client.ProductClient productClient;
+
     private PurchaseEligibilityServiceImpl purchaseEligibilityService;
     private ReviewServiceImpl reviewService;
     private WishlistServiceImpl wishlistService;
@@ -44,7 +47,7 @@ class CustomerEngagementServiceTest {
     @BeforeEach
     void setUp() {
         purchaseEligibilityService = new PurchaseEligibilityServiceImpl(purchasedProductRepository);
-        reviewService = new ReviewServiceImpl(reviewRepository, purchaseEligibilityService);
+        reviewService = new ReviewServiceImpl(reviewRepository, purchaseEligibilityService, productClient);
         wishlistService = new WishlistServiceImpl(wishlistItemRepository);
         ReflectionTestUtils.setField(purchaseEligibilityService, "assumePurchased", true);
     }

@@ -1,6 +1,8 @@
 package com.melodyshop.engagement.controller;
 
 import com.melodyshop.common.dto.ApiResponse;
+import com.melodyshop.common.dto.PageResponse;
+import com.melodyshop.engagement.dto.AdminReviewResponse;
 import com.melodyshop.engagement.dto.CreateReviewRequest;
 import com.melodyshop.engagement.dto.ProductReviewsResponse;
 import com.melodyshop.engagement.dto.ReviewResponse;
@@ -40,5 +42,19 @@ public class ReviewController {
     @GetMapping("/products/{productId}/reviews")
     public ResponseEntity<ApiResponse<ProductReviewsResponse>> getReviewsByProduct(@PathVariable String productId) {
         return ResponseEntity.ok(ApiResponse.ok(reviewService.getReviewsByProduct(productId)));
+    }
+
+    // Admin endpoints
+    @GetMapping("/admin/reviews")
+    public ResponseEntity<ApiResponse<PageResponse<AdminReviewResponse>>> getAllReviews(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.ok(reviewService.getAllReviews(page, size)));
+    }
+
+    @DeleteMapping("/admin/reviews/{reviewId}")
+    public ResponseEntity<Void> deleteReview(@PathVariable String reviewId) {
+        reviewService.deleteReview(reviewId);
+        return ResponseEntity.noContent().build();
     }
 }

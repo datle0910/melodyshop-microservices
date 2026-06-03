@@ -251,6 +251,101 @@ public class AuthServiceImpl implements AuthService {
                 .build());
     }
 
+    @Override
+    @Transactional
+    public void requestForgotPasswordOtp(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại với email này"));
+
+        // Mark all existing codes for this email/purpose as used
+        verificationCodeRepository.markAllAsUsed(email, "FORGOT_PASSWORD");
+
+        // Generate 6-digit code
+        String code = String.format("%06d", new java.security.SecureRandom().nextInt(1_000_000));
+
+        // Save to database
+        VerificationCode verificationCode = VerificationCode.builder()
+                .email(email)
+                .code(code)
+                .purpose("FORGOT_PASSWORD")
+                .expiresAt(LocalDateTime.now().plusMinutes(VERIFICATION_CODE_EXPIRY_MINUTES))
+                .isUsed(false)
+                .isVerified(false)
+                .build();
+        verificationCodeRepository.save(verificationCode);
+
+        // Send OTP email
+        try {
+            var result = notificationServiceClient.sendOtp(OtpRequest.builder()
+                    .to(email)
+                    .recipientName(user.getFullName())
+                    .otp(code)
+                    .build());
+            if (result == null || !result.isSuccess()) {
+                throw new FeignClientException(502, "Không thể gửi email lúc này. Vui lòng thử lại.");
+            }
+            log.info("Forgot password OTP email sent to {}", email);
+        } catch (Exception e) {
+            log.error("Failed to send forgot password email to {}", email, e);
+            throw new FeignClientException(502, "Không thể gửi email lúc này. Vui lòng thử lại.");
+        }
+    }
+
+    @Override
+    @Transactional
+    public String verifyForgotPasswordOtp(String email, String otp) {
+        VerificationCode verification = verificationCodeRepository
+                .findTopByEmailAndPurposeAndIsUsedFalseOrderByCreatedAtDesc(email, "FORGOT_PASSWORD")
+                .orElseThrow(() -> new BadRequestException("Không tìm thấy mã xác nhận. Vui lòng yêu cầu lại."));
+
+        if (verification.isExpired()) {
+            throw new BadRequestException("Mã xác nhận đã hết hạn. Vui lòng yêu cầu lại.");
+        }
+
+        if (!verification.getCode().equals(otp.trim())) {
+            throw new BadRequestException("Mã xác nhận không đúng. Vui lòng kiểm tra lại.");
+        }
+
+        // Generate 6-char reset token to fit the DB 'code' column length (which is 6)
+        String resetToken = java.util.UUID.randomUUID().toString().substring(0, 6);
+        
+        verification.setCode(resetToken);
+        verification.setIsVerified(true);
+        // Do NOT set isUsed to true yet, we need it for the final step.
+        // It will expire based on the original expiration time (or we can extend it).
+        verificationCodeRepository.save(verification);
+
+        return resetToken;
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(String resetToken, String newPassword, String confirmPassword) {
+        if (!newPassword.equals(confirmPassword)) {
+            throw new BadRequestException("Mật khẩu xác nhận không khớp");
+        }
+
+        VerificationCode verification = verificationCodeRepository
+                .findTopByCodeAndPurposeAndIsUsedFalseOrderByCreatedAtDesc(resetToken, "FORGOT_PASSWORD")
+                .orElseThrow(() -> new BadRequestException("Token đổi mật khẩu không hợp lệ hoặc đã hết hạn"));
+
+        if (verification.isExpired()) {
+            throw new BadRequestException("Token đổi mật khẩu đã hết hạn. Vui lòng thực hiện lại từ đầu.");
+        }
+
+        User user = userRepository.findByEmail(verification.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại"));
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        verification.setIsUsed(true);
+        verificationCodeRepository.save(verification);
+        
+        // Revoke all existing sessions to force login again
+        revokeUserTokens(user.getId());
+    }
+
     // ===== Private helpers =====
 
     private AuthResponse generateAuthResponse(User user) {

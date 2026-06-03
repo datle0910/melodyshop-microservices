@@ -82,4 +82,22 @@ public class AuthController {
                 .build();
         return ResponseEntity.ok(ApiResponse.ok(pageResponse));
     }
+
+    @PostMapping("/forgot-password/request-otp")
+    public ResponseEntity<ApiResponse<Void>> requestForgotPasswordOtp(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.requestForgotPasswordOtp(request.getEmail());
+        return ResponseEntity.ok(ApiResponse.ok("Mã xác nhận đã được gửi đến email của bạn.", null));
+    }
+
+    @PostMapping("/forgot-password/verify-otp")
+    public ResponseEntity<ApiResponse<String>> verifyForgotPasswordOtp(@Valid @RequestBody VerifyOtpRequest request) {
+        String resetToken = authService.verifyForgotPasswordOtp(request.getEmail(), request.getOtp());
+        return ResponseEntity.ok(ApiResponse.ok("Xác minh OTP thành công", resetToken));
+    }
+
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request.getResetToken(), request.getNewPassword(), request.getConfirmPassword());
+        return ResponseEntity.ok(ApiResponse.ok("Đổi mật khẩu thành công", null));
+    }
 }

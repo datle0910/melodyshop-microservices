@@ -4,6 +4,12 @@ server:
 spring:
   application:
     name: ai-service
+  main:
+    allow-bean-definition-overriding: true
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
   config:
     import: optional:file:./config
 
@@ -14,12 +20,35 @@ gemini:
   temperature: ${GEMINI_TEMPERATURE:0.7}
   base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
 
+# Ollama configuration (LangChain4j standard prefix)
+langchain4j:
+  ollama:
+    base-url: ${OLLAMA_BASE_URL:http://host.docker.internal:11434}
+    chat-model: ${OLLAMA_MODEL:llama3.2}
+    temperature: ${OLLAMA_TEMPERATURE:0.7}
+    timeout: ${OLLAMA_TIMEOUT:120}s
+
+# Custom properties for our config class
+ollama:
+  base-url: ${OLLAMA_BASE_URL:http://host.docker.internal:11434}
+  model: ${OLLAMA_MODEL:llama3.2}
+  temperature: ${OLLAMA_TEMPERATURE:0.7}
+  timeout: ${OLLAMA_TIMEOUT:120}
+
+# Enable which AI provider to use: "ollama" or "gemini"
+ai:
+  provider: ${AI_PROVIDER:ollama}
+
 eureka:
   client:
     service-url:
       defaultZone: http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8761}/eureka/
   instance:
     prefer-ip-address: true
+
+spring.cloud.loadbalancer.ribbon.enabled: false
+spring.cloud.loadbalancer.warefore.approximations: true
+spring.cloud.loadbalancer.ZonePreferenceServiceInstanceListSupplier.enabled: false
 
 management:
   endpoints:
@@ -32,4 +61,8 @@ management:
 
 logging:
   level:
-    com.melodyshop.ai: INFO
+    com.melodyshop.ai: DEBUG
+    org.springframework.cloud.openfeign: DEBUG
+    org.springframework.cloud.client.discovery: DEBUG
+    com.netflix.discovery: WARN
+    Feign: DEBUG

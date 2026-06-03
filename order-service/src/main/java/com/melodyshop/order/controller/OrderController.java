@@ -21,6 +21,12 @@ public class OrderController {
 
     private final OrderService orderService;
 
+    @PostMapping("/quote")
+    public ResponseEntity<ApiResponse<CheckoutQuoteDTO>> quoteOrder(
+            @Valid @RequestBody CheckoutQuoteRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(orderService.quoteOrder(request)));
+    }
+
     @PostMapping
     public ResponseEntity<ApiResponse<OrderDTO>> createOrder(
             @RequestHeader("X-User-Id") String userId,
@@ -54,9 +60,16 @@ public class OrderController {
     public ResponseEntity<ApiResponse<PageResponse<OrderDTO>>> getMyOrders(
             @RequestHeader("X-User-Id") String userId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String status) {
         Pageable pageable = PageRequest.of(page, size);
-        PageResponse<OrderDTO> orders = orderService.getOrdersByUserId(userId, pageable);
+        PageResponse<OrderDTO> orders;
+        if (status != null && !status.isBlank()) {
+            OrderStatus orderStatus = OrderStatus.valueOf(status.toUpperCase());
+            orders = orderService.getOrdersByUserIdAndStatus(userId, orderStatus, pageable);
+        } else {
+            orders = orderService.getOrdersByUserId(userId, pageable);
+        }
         return ResponseEntity.ok(ApiResponse.ok(orders));
     }
 

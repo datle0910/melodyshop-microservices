@@ -2,6 +2,7 @@ package com.melodyshop.notification.service.impl;
 
 import com.melodyshop.notification.dto.EmailRequest;
 import com.melodyshop.notification.service.EmailService;
+import com.melodyshop.common.exception.FeignClientException;
 import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,7 +46,7 @@ class EmailServiceImplTest {
     void setUp() {
         ReflectionTestUtils.setField(emailService, "fromEmail", "noreply@melodyshop.vn");
         ReflectionTestUtils.setField(emailService, "fromName", "MelodyShop");
-        ReflectionTestUtils.setField(emailService, "otpExpiryMinutes", 5);
+        ReflectionTestUtils.setField(emailService, "otpExpiryMinutes", 10);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -201,8 +202,8 @@ class EmailServiceImplTest {
         }
 
         @Test
-        @DisplayName("Should wrap exception in RuntimeException when mail sending fails")
-        void shouldThrowRuntimeException_whenMailSenderFails() {
+        @DisplayName("Should wrap exception in FeignClientException when mail sending fails")
+        void shouldThrowFeignClientException_whenMailSenderFails() {
             MimeMessage mimeMessage = mock(MimeMessage.class);
             when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
             when(templateEngine.process(anyString(), any(Context.class)))
@@ -214,8 +215,8 @@ class EmailServiceImplTest {
                     .to("user@test.com").subject("Test").templateName("welcome").build();
 
             assertThatThrownBy(() -> emailService.sendEmail(request))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("Email sending failed");
+                    .isInstanceOf(FeignClientException.class)
+                    .hasMessageContaining("Khong the gui email luc nay");
         }
     }
 }

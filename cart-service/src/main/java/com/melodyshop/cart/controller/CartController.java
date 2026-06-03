@@ -72,4 +72,11 @@ public class CartController {
         CartDTO cart = cartService.mergeCart(userId, request.getItems());
         return ResponseEntity.ok(ApiResponse.ok("Gộp giỏ hàng thành công", cart));
     }
+
+    @PostMapping("/sync-prices")
+    public ResponseEntity<ApiResponse<CartDTO>> syncPrices(
+            @RequestHeader("X-User-Id") String userId) {
+        CartDTO cart = cartService.syncCartPrices(userId);
+        return ResponseEntity.ok(ApiResponse.ok("Đã cập nhật giá sản phẩm", cart));
+    }
 }

@@ -12,6 +12,25 @@ gemini:
   temperature: 0.7
   base-url: https://generativelanguage.googleapis.com
 
+# Ollama configuration (LangChain4j standard prefix)
+langchain4j:
+  ollama:
+    base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    chat-model: ${OLLAMA_MODEL:llama3.2}
+    temperature: ${OLLAMA_TEMPERATURE:0.7}
+    timeout: ${OLLAMA_TIMEOUT:120}s
+
+# Custom properties
+ollama:
+  base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+  model: ${OLLAMA_MODEL:llama3.2}
+  temperature: ${OLLAMA_TEMPERATURE:0.7}
+  timeout: ${OLLAMA_TIMEOUT:120}
+
+# Provider: "ollama" (local, free) or "gemini" (cloud, needs API key)
+ai:
+  provider: ${AI_PROVIDER:ollama}
+
 eureka:
   client:
     service-url:

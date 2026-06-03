@@ -4,16 +4,18 @@ import java.util.Locale;
 
 public enum PaymentStatus {
     PENDING,
+    WAITING_CONFIRMATION,
     SUCCESS,
     FAILED,
+    CANCELLED,
     EXPIRED;
 
     public boolean isTerminal() {
-        return this != PENDING;
+        return this == SUCCESS || this == FAILED || this == CANCELLED || this == EXPIRED;
     }
 
     public boolean shouldPublishFailureEvent() {
-        return this == FAILED || this == EXPIRED;
+        return this == FAILED || this == CANCELLED || this == EXPIRED;
     }
 
     public static PaymentStatus fromWebhookStatus(String rawStatus) {

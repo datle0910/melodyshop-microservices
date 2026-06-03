@@ -5,10 +5,12 @@ import com.melodyshop.order.enums.OrderStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -18,6 +20,8 @@ public interface OrderRepository extends JpaRepository<Order, String> {
 
     Page<Order> findByUserIdOrderByCreatedAtDesc(String userId, Pageable pageable);
 
+    Page<Order> findByUserIdAndStatusOrderByCreatedAtDesc(String userId, OrderStatus status, Pageable pageable);
+
     Page<Order> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     Page<Order> findByStatusOrderByCreatedAtDesc(OrderStatus status, Pageable pageable);
@@ -26,6 +30,10 @@ public interface OrderRepository extends JpaRepository<Order, String> {
 
     @Query("SELECT o FROM Order o LEFT JOIN FETCH o.items WHERE o.id = :id")
     Optional<Order> findByIdWithItems(@Param("id") String id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items WHERE o.id = :id")
+    Optional<Order> findByIdWithItemsForUpdate(@Param("id") String id);
 
     @Query("SELECT o FROM Order o LEFT JOIN FETCH o.items WHERE o.userId = :userId AND o.id = :id")
     Optional<Order> findByIdAndUserIdWithItems(@Param("id") String id, @Param("userId") String userId);

@@ -61,6 +61,9 @@ public class InventoryService {
                 .findBySkuAndWarehouseIdForUpdate(request.getSku(), DEFAULT_WAREHOUSE)
                 .orElseThrow(() -> new ResourceNotFoundException("Tồn kho", "sku", request.getSku()));
 
+        if (alreadyProcessed(inventory, "RESERVE", request.getOrderId())) {
+            return toDTO(inventory);
+        }
         int available = inventory.getAvailableQuantity();
         if (available < request.getQuantity()) {
             throw new BadRequestException(
@@ -92,11 +95,16 @@ public class InventoryService {
                 .findBySkuAndWarehouseIdForUpdate(request.getSku(), DEFAULT_WAREHOUSE)
                 .orElseThrow(() -> new ResourceNotFoundException("Tồn kho", "sku", request.getSku()));
 
+        if (alreadyProcessed(inventory, "DEDUCT", request.getOrderId())) {
+            return toDTO(inventory);
+        }
         int beforeQty = inventory.getQuantity();
         int beforeReserved = inventory.getReservedQuantity();
 
-        if (beforeReserved < request.getQuantity()) {
-            throw new BadRequestException("Số lượng deduct lớn hơn số lượng đã reserve");
+        if (beforeQty < request.getQuantity() || beforeReserved < request.getQuantity()) {
+            throw new BadRequestException(
+                    String.format("Cannot deduct unreserved stock. SKU: %s, requested: %d, quantity: %d, reserved: %d",
+                            request.getSku(), request.getQuantity(), beforeQty, beforeReserved));
         }
 
         inventory.setQuantity(beforeQty - request.getQuantity());
@@ -122,8 +130,16 @@ public class InventoryService {
                 .findBySkuAndWarehouseIdForUpdate(request.getSku(), DEFAULT_WAREHOUSE)
                 .orElseThrow(() -> new ResourceNotFoundException("Tồn kho", "sku", request.getSku()));
 
+        if (alreadyProcessed(inventory, "UNRESERVE", request.getOrderId())) {
+            return toDTO(inventory);
+        }
         int before = inventory.getReservedQuantity();
-        int unreserveQty = Math.min(request.getQuantity(), before);
+        if (before < request.getQuantity()) {
+            throw new BadRequestException(
+                    String.format("Cannot release missing reservation. SKU: %s, requested: %d, reserved: %d",
+                            request.getSku(), request.getQuantity(), before));
+        }
+        int unreserveQty = request.getQuantity();
 
         inventory.setReservedQuantity(before - unreserveQty);
         inventoryRepository.save(inventory);
@@ -148,6 +164,9 @@ public class InventoryService {
                 .findBySkuAndWarehouseIdForUpdate(request.getSku(), DEFAULT_WAREHOUSE)
                 .orElseThrow(() -> new ResourceNotFoundException("Tồn kho", "sku", request.getSku()));
 
+        if (alreadyProcessed(inventory, "RESTORE", request.getOrderId())) {
+            return toDTO(inventory);
+        }
         int beforeQty = inventory.getQuantity();
         int beforeReserved = inventory.getReservedQuantity();
 
@@ -167,7 +186,7 @@ public class InventoryService {
     }
 
     /**
-     * Khởi tạo kho cho sản phẩm mới (số lượng 20).
+     * Khởi tạo kho cho sản phẩm mới (số lượng 0).
      */
     @Transactional
     public void initInventory(String productId, String variantId, String sku) {
@@ -180,12 +199,12 @@ public class InventoryService {
                 .variantId(variantId)
                 .sku(sku)
                 .warehouseId(DEFAULT_WAREHOUSE)
-                .quantity(20)
+                .quantity(0)
                 .reservedQuantity(0)
                 .reorderPoint(10)
                 .build();
         inventoryRepository.save(inventory);
-        log.info("Initialized inventory for SKU: {} with 20 items", sku);
+        log.info("Initialized inventory for SKU: {} with 0 items", sku);
     }
 
     /**
@@ -437,6 +456,11 @@ public class InventoryService {
 
     // ==================== Private helpers ====================
 
+    private boolean alreadyProcessed(Inventory inventory, String action, String referenceId) {
+        return referenceId != null
+                && logRepository.existsByInventoryIdAndActionAndReferenceId(inventory.getId(), action, referenceId);
+    }
+
     private void createLog(Inventory inventory, String action, int change,
                            int before, int after, String refId, String note, String userId) {
         InventoryLog log = InventoryLog.builder()
@@ -456,6 +480,16 @@ public class InventoryService {
         String warehouseName = warehouseRepository.findById(i.getWarehouseId())
                 .map(Warehouse::getName).orElse(null);
 
+        String productName = null;
+        try {
+            var response = productClient.getProductById(i.getProductId());
+            if (response != null && response.isSuccess() && response.getData() != null) {
+                productName = response.getData().getName();
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch product name for ID {}: {}", i.getProductId(), e.getMessage());
+        }
+
         return InventoryDTO.builder()
                 .id(i.getId())
                 .productId(i.getProductId())
@@ -463,6 +497,7 @@ public class InventoryService {
                 .sku(i.getSku())
                 .warehouseId(i.getWarehouseId())
                 .warehouseName(warehouseName)
+                .productName(productName)
                 .quantity(i.getQuantity())
                 .reservedQuantity(i.getReservedQuantity())
                 .availableQuantity(i.getAvailableQuantity())

@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -38,4 +39,8 @@ public class GuestCreateOrderRequest {
     private List<OrderItemRequest> items;
 
     private String voucherCode;
+
+    @NotNull(message = "Tong tien checkout khong duoc de trong")
+    @DecimalMin(value = "0.0", inclusive = false, message = "Tong tien checkout phai lon hon 0")
+    private BigDecimal expectedTotal;
 }

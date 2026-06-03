@@ -70,7 +70,7 @@ spring:
         - id: payment-service
           uri: lb://payment-service
           predicates:
-            - Path=/api/payments/**
+            - Path=/api/payments/**,/api/admin/payments/**
 
         # --- Product Service ---
         - id: product-service
@@ -104,9 +104,19 @@ spring:
 
         # --- AI Service ---
         - id: ai-service
-          uri: lb://ai-service
+          uri: lb://AI-SERVICE
           predicates:
-            - Path=/api/ai/**
+            - Path=/api/ai/v1/**
+          filters:
+            - RewritePath=/api/ai/v1/(?<segment>.*), /api/v1/${segment}
+
+        # --- AI Service (no v1 prefix) ---
+        - id: ai-service-chat
+          uri: lb://AI-SERVICE
+          predicates:
+            - Path=/api/ai/chat
+          filters:
+            - RewritePath=/api/ai/chat, /api/ai/chat
 
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin

@@ -13,7 +13,7 @@ public interface InventoryClient {
     @GetMapping("/api/inventory/check")
     ApiResponse<StockCheckResponse> checkStock(
             @RequestParam("sku") String sku,
-            @RequestParam("requestedQuantity") int requestedQuantity);
+            @RequestParam("quantity") int requestedQuantity);
 
     @PutMapping("/api/inventory/reserve")
     ApiResponse<Void> reserveStock(@RequestBody InventoryActionRequest request);

@@ -47,6 +47,17 @@ stripe:
   success-url: ${STRIPE_SUCCESS_URL:http://localhost:5173/checkout?payment=success&orderId={CHECKOUT_SESSION_ID}}
   cancel-url: ${STRIPE_CANCEL_URL:http://localhost:5173/checkout?payment=failed}
 
+vietqr:
+  bank-code: ${VIETQR_BANK_CODE:VCB}
+  bank-name: ${VIETQR_BANK_NAME:Vietcombank}
+  account-number: ${VIETQR_ACCOUNT_NUMBER:0123456789}
+  account-name: ${VIETQR_ACCOUNT_NAME:MELODYSHOP}
+  qr-base-url: ${VIETQR_QR_BASE_URL:https://qr.sepay.vn/img}
+  payment-expire-minutes: ${VIETQR_PAYMENT_EXPIRE_MINUTES:30}
+
+internal:
+  service-token: ${PAYMENT_INTERNAL_SERVICE_TOKEN:melodyshop-payment-internal-dev}
+
 eureka:
   client:
     service-url:

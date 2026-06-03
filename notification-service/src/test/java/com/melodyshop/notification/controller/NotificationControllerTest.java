@@ -126,8 +126,8 @@ class NotificationControllerTest {
     // ─────────────────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("POST /otp with valid request → 200 OK, returns 6-digit OTP")
-    void sendOtp_withValidRequest_returns200WithOtp() throws Exception {
+    @DisplayName("POST /otp with valid request → 200 OK, returns sent status without exposing OTP")
+    void sendOtp_withValidRequest_returns200WithoutOtp() throws Exception {
         when(emailService.sendOtp(anyString(), anyString(), any())).thenReturn("482931");
 
         OtpRequest request = OtpRequest.builder()
@@ -141,7 +141,7 @@ class NotificationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.status").value("sent"))
-                .andExpect(jsonPath("$.data.otp").value("482931"))
+                .andExpect(jsonPath("$.data.otp").doesNotExist())
                 .andExpect(jsonPath("$.data.to").value("user@test.com"));
 
         verify(emailService).sendOtp("user@test.com", "Nguyen Van A", null);

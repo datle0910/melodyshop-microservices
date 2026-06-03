@@ -12,4 +12,5 @@ public interface CartService {
     void removeCartItem(String userId, String itemId);
     void clearCart(String userId);
     CartDTO mergeCart(String userId, java.util.List<AddToCartRequest> items);
+    CartDTO syncCartPrices(String userId);
 }

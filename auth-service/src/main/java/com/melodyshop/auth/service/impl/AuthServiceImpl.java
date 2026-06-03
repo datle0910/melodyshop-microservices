@@ -12,6 +12,7 @@ import com.melodyshop.auth.repository.UserRepository;
 import com.melodyshop.auth.repository.VerificationCodeRepository;
 import com.melodyshop.auth.service.AuthService;
 import com.melodyshop.common.exception.BadRequestException;
+import com.melodyshop.common.exception.FeignClientException;
 import com.melodyshop.common.exception.ResourceNotFoundException;
 import com.melodyshop.auth.client.NotificationServiceClient;
 import lombok.RequiredArgsConstructor;
@@ -70,22 +71,27 @@ public class AuthServiceImpl implements AuthService {
                 .build();
         verificationCodeRepository.save(verificationCode);
 
-        // Send OTP email via NotificationService
+        // Send OTP email via NotificationService. If this fails, rollback the
+        // saved code so the frontend does not show a false "email sent" state.
         try {
             var result = notificationServiceClient.sendOtp(OtpRequest.builder()
                     .to(email)
                     .recipientName(fullName)
                     .otp(code)
                     .build());
-            if (!result.isSuccess() && "MAIL_SERVICE_UNAVAILABLE".equals(result.getMessage())) {
-                // Notification service is down - allow registration anyway, log the code
-                log.warn("Notification service unavailable. Registration code for {}: {}", email, code);
-            } else {
-                log.info("Verification code sent to {}", email);
+            if (result == null || !result.isSuccess()) {
+                String failureMessage = result != null ? result.getMessage() : "empty response";
+                log.error("Notification service failed to send verification email to {}: {}", email, failureMessage);
+                throw new FeignClientException(502,
+                        "Khong the gui email xac nhan luc nay. Vui long kiem tra cau hinh SMTP va thu lai.");
             }
+            log.info("Verification code email sent to {}", email);
+        } catch (FeignClientException e) {
+            throw e;
         } catch (Exception e) {
-            // Notification service unreachable - allow registration anyway, log the code
-            log.warn("Failed to send verification email to {}: {}. Code: {}", email, e.getMessage(), code);
+            log.error("Failed to send verification email to {}", email, e);
+            throw new FeignClientException(502,
+                    "Khong the gui email xac nhan luc nay. Vui long kiem tra cau hinh SMTP va thu lai.");
         }
     }
 

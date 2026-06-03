@@ -1,20 +1,19 @@
 package com.melodyshop.ai.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
-
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class ChatResponse {
+    private String response;
+    private String type;
 
-    private String answer;
-    private String conversationId;
-    private String model;
-    private LocalDateTime timestamp;
+    public ChatResponse() {}
+
+    public ChatResponse(String response, String type) {
+        this.response = response;
+        this.type = type;
+    }
+
+    public String getResponse() { return response; }
+    public void setResponse(String response) { this.response = response; }
+
+    public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
 }

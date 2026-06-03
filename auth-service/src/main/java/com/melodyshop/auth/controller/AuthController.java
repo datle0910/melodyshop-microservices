@@ -26,7 +26,7 @@ public class AuthController {
     }
 
     @PostMapping("/send-verification")
-    public ResponseEntity<ApiResponse<Void>> sendVerificationCode(@RequestBody SendVerificationRequest request) {
+    public ResponseEntity<ApiResponse<Void>> sendVerificationCode(@Valid @RequestBody SendVerificationRequest request) {
         authService.sendVerificationCode(request.getEmail(), request.getFullName());
         return ResponseEntity.ok(ApiResponse.ok("Mã xác nhận đã được gửi đến email của bạn.", null));
     }
@@ -82,6 +82,7 @@ public class AuthController {
                 .build();
         return ResponseEntity.ok(ApiResponse.ok(pageResponse));
     }
+
     @PostMapping("/forgot-password/request-otp")
     public ResponseEntity<ApiResponse<Void>> requestForgotPasswordOtp(@Valid @RequestBody ForgotPasswordRequest request) {
         authService.requestForgotPasswordOtp(request.getEmail());

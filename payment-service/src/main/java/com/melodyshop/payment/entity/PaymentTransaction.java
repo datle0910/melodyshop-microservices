@@ -3,10 +3,15 @@ package com.melodyshop.payment.entity;
 import com.melodyshop.common.entity.BaseEntity;
 import com.melodyshop.payment.enums.PaymentStatus;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
+@Getter
+@Setter
 @Table(name = "payment_transaction", uniqueConstraints = {
         @UniqueConstraint(name = "uk_payment_idempotency_key", columnNames = "idempotency_key"),
         @UniqueConstraint(name = "uk_payment_gateway_transaction_id", columnNames = "gateway_transaction_id"),
@@ -20,6 +25,9 @@ public class PaymentTransaction extends BaseEntity {
 
     @Column(name = "order_id", nullable = false, length = 64)
     private String orderId;
+
+    @Column(name = "user_id", length = 36)
+    private String userId;
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
@@ -45,6 +53,39 @@ public class PaymentTransaction extends BaseEntity {
 
     @Column(length = 20)
     private String provider;
+
+    @Column(length = 30)
+    private String method;
+
+    @Column(name = "bank_code", length = 50)
+    private String bankCode;
+
+    @Column(name = "bank_name", length = 150)
+    private String bankName;
+
+    @Column(name = "account_number", length = 50)
+    private String accountNumber;
+
+    @Column(name = "account_name", length = 150)
+    private String accountName;
+
+    @Column(name = "transfer_content", length = 150)
+    private String transferContent;
+
+    @Column(name = "qr_code", columnDefinition = "LONGTEXT")
+    private String qrCode;
+
+    @Column(name = "qr_url", length = 1000)
+    private String qrUrl;
+
+    @Column(name = "expired_at")
+    private LocalDateTime expiredAt;
+
+    @Column(name = "confirmed_by", length = 36)
+    private String confirmedBy;
+
+    @Column(name = "confirmed_at")
+    private LocalDateTime confirmedAt;
 
     @Version
     private Long version;
@@ -145,7 +186,7 @@ public class PaymentTransaction extends BaseEntity {
     public void transitionTo(PaymentStatus newStatus) {
         this.status = newStatus;
         switch (newStatus) {
-            case PENDING -> {
+            case PENDING, WAITING_CONFIRMATION -> {
                 this.activePaymentKey = this.orderId;
                 this.successfulPaymentKey = null;
             }
@@ -153,7 +194,7 @@ public class PaymentTransaction extends BaseEntity {
                 this.activePaymentKey = null;
                 this.successfulPaymentKey = this.orderId;
             }
-            case FAILED, EXPIRED -> {
+            case FAILED, CANCELLED, EXPIRED -> {
                 this.activePaymentKey = null;
                 this.successfulPaymentKey = null;
             }

@@ -1,7 +1,9 @@
 package com.melodyshop.payment.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.melodyshop.common.dto.ApiResponse;
 import com.melodyshop.common.exception.BadRequestException;
+import com.melodyshop.payment.client.OrderClient;
 import com.melodyshop.payment.dto.CreatePaymentRequest;
 import com.melodyshop.payment.dto.PaymentWebhookRequest;
 import com.melodyshop.payment.entity.OutboxEvent;
@@ -10,6 +12,7 @@ import com.melodyshop.payment.enums.PaymentStatus;
 import com.melodyshop.payment.repository.OutboxEventRepository;
 import com.melodyshop.payment.repository.PaymentTransactionRepository;
 import com.melodyshop.payment.service.WebhookSignatureService;
+import com.melodyshop.payment.service.VietQrService;
 import com.melodyshop.payment.service.gateway.PaymentGateway;
 import com.melodyshop.payment.service.gateway.PaymentGatewayFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,11 +23,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -45,6 +51,12 @@ class PaymentServiceImplTest {
     @Mock
     private PaymentGateway paymentGateway;
 
+    @Mock
+    private VietQrService vietQrService;
+
+    @Mock
+    private OrderClient orderClient;
+
     private PaymentServiceImpl paymentService;
 
     @BeforeEach
@@ -54,7 +66,9 @@ class PaymentServiceImplTest {
                 outboxEventRepository,
                 paymentGatewayFactory,
                 webhookSignatureService,
-                new ObjectMapper()
+                new ObjectMapper(),
+                vietQrService,
+                orderClient
         );
     }
 
@@ -71,7 +85,7 @@ class PaymentServiceImplTest {
         request.setCurrency("USD");
         request.setProvider("VNPAY");
 
-        var response = paymentService.createPayment("idem-1", request);
+        var response = paymentService.createPayment(null, "idem-1", request);
 
         assertEquals("pay-1", response.getPaymentId());
         assertEquals("http://fake-gateway/pay/pay-1", response.getRedirectUrl());
@@ -91,7 +105,7 @@ class PaymentServiceImplTest {
         request.setCurrency("VND");
         request.setProvider("VNPAY");
 
-        assertThrows(BadRequestException.class, () -> paymentService.createPayment("idem-new", request));
+        assertThrows(BadRequestException.class, () -> paymentService.createPayment(null, "idem-new", request));
         verify(paymentTransactionRepository, never()).saveAndFlush(any(PaymentTransaction.class));
     }
 
@@ -122,6 +136,73 @@ class PaymentServiceImplTest {
         ArgumentCaptor<OutboxEvent> outboxCaptor = ArgumentCaptor.forClass(OutboxEvent.class);
         verify(outboxEventRepository).save(outboxCaptor.capture());
         assertEquals("payment_succeeded", outboxCaptor.getValue().getEventType());
+    }
+
+    @Test
+    void shouldMarkVietQrTransferredOnlyOnce() {
+        PaymentTransaction paymentTransaction = payment("pay-4", "order-4", "idem-4", "VIETQR", PaymentStatus.PENDING);
+        paymentTransaction.setUserId("user-4");
+        paymentTransaction.setExpiredAt(LocalDateTime.now().plusMinutes(10));
+        when(paymentTransactionRepository.findByIdForUpdate("pay-4")).thenReturn(Optional.of(paymentTransaction));
+        when(paymentTransactionRepository.saveAndFlush(any(PaymentTransaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        paymentService.markTransferred("pay-4", "user-4");
+        paymentService.markTransferred("pay-4", "user-4");
+
+        assertEquals(PaymentStatus.WAITING_CONFIRMATION, paymentTransaction.getStatus());
+        verify(paymentTransactionRepository, times(1)).saveAndFlush(paymentTransaction);
+    }
+
+    @Test
+    void shouldConfirmVietQrOnlyOnce() {
+        PaymentTransaction paymentTransaction = payment("pay-5", "order-5", "idem-5", "VIETQR", PaymentStatus.WAITING_CONFIRMATION);
+        paymentTransaction.setExpiredAt(LocalDateTime.now().plusMinutes(10));
+        when(paymentTransactionRepository.findByIdForUpdate("pay-5")).thenReturn(Optional.of(paymentTransaction));
+        when(paymentTransactionRepository.saveAndFlush(any(PaymentTransaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderClient.markPaymentSuccess(nullable(String.class), eq("order-5"), any()))
+                .thenReturn(ApiResponse.<Void>ok(null));
+        when(outboxEventRepository.save(any(OutboxEvent.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        paymentService.confirmPayment("pay-5", "admin-1");
+        paymentService.confirmPayment("pay-5", "admin-1");
+
+        assertEquals(PaymentStatus.SUCCESS, paymentTransaction.getStatus());
+        assertEquals("admin-1", paymentTransaction.getConfirmedBy());
+        verify(paymentTransactionRepository, times(1)).saveAndFlush(paymentTransaction);
+        verify(orderClient, times(2)).markPaymentSuccess(nullable(String.class), eq("order-5"), any());
+        verify(outboxEventRepository, times(1)).save(any(OutboxEvent.class));
+    }
+
+    @Test
+    void shouldResynchronizeOrderWhenSuccessfulVietQrIsConfirmedAgain() {
+        PaymentTransaction paymentTransaction = payment("pay-5", "order-5", "idem-5", "VIETQR", PaymentStatus.SUCCESS);
+        when(paymentTransactionRepository.findByIdForUpdate("pay-5")).thenReturn(Optional.of(paymentTransaction));
+        when(orderClient.markPaymentSuccess(nullable(String.class), eq("order-5"), any()))
+                .thenReturn(ApiResponse.<Void>ok(null));
+
+        var result = paymentService.confirmPayment("pay-5", "admin-1");
+
+        assertEquals(PaymentStatus.SUCCESS, result.getStatus());
+        verify(orderClient).markPaymentSuccess(nullable(String.class), eq("order-5"), any());
+        verify(paymentTransactionRepository, never()).saveAndFlush(any(PaymentTransaction.class));
+        verifyNoInteractions(outboxEventRepository);
+    }
+
+    @Test
+    void shouldRejectVietQrOnlyOnce() {
+        PaymentTransaction paymentTransaction = payment("pay-6", "order-6", "idem-6", "VIETQR", PaymentStatus.WAITING_CONFIRMATION);
+        when(paymentTransactionRepository.findByIdForUpdate("pay-6")).thenReturn(Optional.of(paymentTransaction));
+        when(paymentTransactionRepository.saveAndFlush(any(PaymentTransaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderClient.markPaymentFailed(nullable(String.class), eq("order-6"), any()))
+                .thenReturn(ApiResponse.<Void>ok(null));
+        when(outboxEventRepository.save(any(OutboxEvent.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        paymentService.rejectPayment("pay-6", "admin-1");
+        paymentService.rejectPayment("pay-6", "admin-1");
+
+        assertEquals(PaymentStatus.FAILED, paymentTransaction.getStatus());
+        verify(paymentTransactionRepository, times(1)).saveAndFlush(paymentTransaction);
+        verify(orderClient, times(1)).markPaymentFailed(nullable(String.class), eq("order-6"), any());
     }
 
     private PaymentTransaction payment(String id,

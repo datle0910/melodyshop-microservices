@@ -9,4 +9,5 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface InventoryLogRepository extends JpaRepository<InventoryLog, String> {
     Page<InventoryLog> findByInventoryIdOrderByCreatedAtDesc(String inventoryId, Pageable pageable);
+    boolean existsByInventoryIdAndActionAndReferenceId(String inventoryId, String action, String referenceId);
 }

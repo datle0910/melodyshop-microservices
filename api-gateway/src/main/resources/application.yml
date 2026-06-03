@@ -48,6 +48,12 @@ spring:
           predicates:
             - Path=/api/reviews/**
 
+        # --- Customer Engagement Service: Admin review management ---
+        - id: customer-engagement-admin-review-service
+          uri: lb://customer-engagement-service
+          predicates:
+            - Path=/api/admin/reviews/**
+
         # --- Customer Engagement Service: Wishlist ---
         - id: customer-engagement-wishlist-service
           uri: lb://customer-engagement-service

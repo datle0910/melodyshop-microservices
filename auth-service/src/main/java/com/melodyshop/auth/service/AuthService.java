@@ -13,4 +13,7 @@ public interface AuthService {
     void revokeUserTokens(String userId);
     UserInfoResponse getUserInfo(String userId);
     Page<UserSearchDTO> searchUsers(String keyword, Pageable pageable);
+    void requestForgotPasswordOtp(String email);
+    String verifyForgotPasswordOtp(String email, String otp);
+    void resetPassword(String resetToken, String newPassword, String confirmPassword);
 }

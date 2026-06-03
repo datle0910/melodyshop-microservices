@@ -16,6 +16,9 @@ public interface VerificationCodeRepository extends JpaRepository<VerificationCo
     Optional<VerificationCode> findTopByEmailAndPurposeAndIsUsedFalseOrderByCreatedAtDesc(
             String email, String purpose);
 
+    Optional<VerificationCode> findTopByCodeAndPurposeAndIsUsedFalseOrderByCreatedAtDesc(
+            String code, String purpose);
+
     @Query("SELECT v FROM VerificationCode v WHERE v.email = :email AND v.purpose = :purpose AND v.isUsed = false ORDER BY v.createdAt DESC")
     List<VerificationCode> findAllActiveByEmailAndPurpose(
             @Param("email") String email, @Param("purpose") String purpose);

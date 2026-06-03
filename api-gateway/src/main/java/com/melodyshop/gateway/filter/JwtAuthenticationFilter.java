@@ -40,6 +40,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/auth/face/login",
             "/api/auth/register",
             "/api/auth/send-verification",
+            "/api/auth/forgot-password",
             "/api/auth/refresh",
             "/api/auth/revoke-tokens",
             "/api/payments/webhook",

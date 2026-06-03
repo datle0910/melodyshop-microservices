@@ -105,6 +105,11 @@ public class ProductService {
 
         product = productRepository.save(product);
 
+        // Lưu hình ảnh nếu có
+        if (request.getImages() != null && !request.getImages().isEmpty()) {
+            saveProductImages(product, request.getImages());
+        }
+
         // Tạo các biến thể nếu có
         if (request.getVariants() != null && !request.getVariants().isEmpty()) {
             for (ProductVariantDTO v : request.getVariants()) {
@@ -152,7 +157,20 @@ public class ProductService {
         if (request.getCategoryId() != null) product.setCategoryId(request.getCategoryId());
         if (request.getBrandId() != null) product.setBrandId(request.getBrandId());
         if (request.getSpecs() != null) product.setSpecs(request.getSpecs());
-        if (request.getIsFeatured() != null) product.setIsFeatured(request.getIsFeatured());
+        if (request.getIsFeatured() != null)         product.setIsFeatured(request.getIsFeatured());
+
+        // Cập nhật hình ảnh nếu có
+        if (request.getImages() != null) {
+            // Xóa ảnh cũ
+            List<ProductImage> oldImages = product.getImages();
+            if (oldImages != null && !oldImages.isEmpty()) {
+                imageRepository.deleteAll(oldImages);
+            }
+            // Lưu ảnh mới
+            if (!request.getImages().isEmpty()) {
+                saveProductImages(product, request.getImages());
+            }
+        }
 
         product = productRepository.save(product);
         return toDTO(product);
@@ -288,6 +306,100 @@ public class ProductService {
                 .build();
     }
 
+    private void updateVariants(Product product, List<ProductVariantDTO> requestedVariants) {
+        List<ProductVariant> existingVariants = product.getVariants();
+        ProductVariant generatedDefault = isGeneratedDefaultOnly(existingVariants)
+                ? existingVariants.get(0)
+                : null;
+
+        if (generatedDefault != null) {
+            generatedDefault.setPrice(product.getBasePrice());
+            variantRepository.save(generatedDefault);
+            if (requestedVariants == null || requestedVariants.size() <= 1) {
+                return;
+            }
+        }
+
+        if (requestedVariants == null) {
+            return;
+        }
+
+        for (ProductVariantDTO requested : requestedVariants) {
+            ProductVariant variant = findExistingVariant(existingVariants, requested);
+            if (variant == generatedDefault) {
+                continue;
+            }
+            if (variant == null) {
+                addVariant(product, requested);
+                continue;
+            }
+            if (!Objects.equals(variant.getSku(), requested.getSku())) {
+                throw new BadRequestException("Cannot change SKU for an existing product variant");
+            }
+            variant.setVariantName(requested.getVariantName());
+            variant.setPrice(requested.getPrice());
+            variant.setColor(requested.getColor());
+            variant.setSize(requested.getSize());
+            if (requested.getIsActive() != null) {
+                variant.setIsActive(requested.getIsActive());
+            }
+            variantRepository.save(variant);
+        }
+    }
+
+    private ProductVariant findExistingVariant(List<ProductVariant> variants, ProductVariantDTO requested) {
+        return variants.stream()
+                .filter(variant -> requested.getId() != null
+                        ? Objects.equals(variant.getId(), requested.getId())
+                        : Objects.equals(variant.getSku(), requested.getSku()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private void addVariant(Product product, ProductVariantDTO requested) {
+        if (requested.getId() != null || variantRepository.existsBySku(requested.getSku())) {
+            throw new BadRequestException("SKU da ton tai: " + requested.getSku());
+        }
+        ProductVariant variant = ProductVariant.builder()
+                .product(product)
+                .variantName(requested.getVariantName())
+                .sku(requested.getSku())
+                .price(requested.getPrice())
+                .color(requested.getColor())
+                .size(requested.getSize())
+                .isActive(requested.getIsActive() != null ? requested.getIsActive() : true)
+                .build();
+        variant = variantRepository.save(variant);
+        product.getVariants().add(variant);
+        try {
+            inventoryClient.initInventory(product.getId(), variant.getId(), variant.getSku());
+        } catch (Exception e) {
+            log.error("Failed to initialize inventory for SKU {}: {}", variant.getSku(), e.getMessage());
+        }
+    }
+
+    private boolean isGeneratedDefaultOnly(List<ProductVariant> variants) {
+        return variants != null
+                && variants.size() == 1
+                && variants.get(0).getSku() != null
+                && variants.get(0).getSku().toUpperCase().endsWith("-DEFAULT");
+    }
+
+    private void saveProductImages(Product product, List<ProductImageDTO> imageDTOs) {
+        int order = 0;
+        for (ProductImageDTO dto : imageDTOs) {
+            ProductImage image = ProductImage.builder()
+                    .product(product)
+                    .imageUrl(dto.getImageUrl())
+                    .altText(dto.getAltText())
+                    .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : order)
+                    .isPrimary(dto.getIsPrimary() != null ? dto.getIsPrimary() : (order == 0))
+                    .build();
+            imageRepository.save(image);
+            product.getImages().add(image);
+            order++;
+        }
+    }
     private ProductImageDTO toImageDTO(ProductImage i) {
         return ProductImageDTO.builder()
                 .id(i.getId())

@@ -4,7 +4,7 @@
 
 # MelodyShop Microservices Monorepo 🎵
 
-[![Java 17](https://img.shields.io/badge/Java-17-orange.svg?style=flat-square&logo=openjdk)](https://www.oracle.com/java/)
+[![Java 21](https://img.shields.io/badge/Java-21-orange.svg?style=flat-square&logo=openjdk)](https://www.oracle.com/java/)
 [![Spring Boot 3.2](https://img.shields.io/badge/Spring_Boot-3.2.x-6DB33F.svg?style=flat-square&logo=springboot)](https://spring.io/projects/spring-boot)
 [![Spring Cloud 2023](https://img.shields.io/badge/Spring_Cloud-2023.0.x-blue.svg?style=flat-square&logo=spring)](https://spring.io/projects/spring-cloud)
 [![MariaDB 10.11](https://img.shields.io/badge/MariaDB-10.11-003545.svg?style=flat-square&logo=mariadb)](https://mariadb.org/)
@@ -25,7 +25,7 @@ Hệ thống Backend Microservices hoàn chỉnh cho Nền tảng Thương mại
 | **Service Discovery** | **Netflix Eureka Server** (`:8761`) | Tự động đăng ký, phát hiện dịch vụ và theo dõi healthcheck thời gian thực của 13 microservices. |
 | **API Gateway & Auth Filter** | **Spring Cloud Gateway** (`:8080`) | Cổng giao tiếp duy nhất xử lý JWT Validation Filter tập trung, Dynamic Routing, CORS & Rate Limiting. |
 | **Ghi Log Tập Trung (Centralized Logging)** | **ELK Stack** (`docker-compose.elk.yml`) | Tích hợp Logstash (TCP/UDP Log Appender), Elasticsearch 8.13 & Kibana Dashboard (`:5601`) để truy vấn log tập trung. |
-| **Tự động hóa CI/CD** | **GitHub Actions** (`ci.yml`) | Pipeline tự động hóa build Maven multi-module, chạy unit test và publish Docker Image lên GitHub Container Registry (GHCR). |
+| **Tự động hóa CI/CD** | **GitHub Actions** (`ci.yml`) | Pipeline tự động hóa build Maven Java 21 multi-module, chạy unit test và publish Docker Image lên GitHub Container Registry (GHCR). |
 | **Quản lý Database Schema** | **Flyway Migration** (22+ Scripts) | Quản lý phiên bản cơ sở dữ liệu (Database Schema Versioning) và tự động seed data ban đầu cho các DBs. |
 | **Giao Tiếp Liên Service** | **Spring Cloud OpenFeign** | Giao tiếp khai báo REST Client giữa Order, Cart, Inventory, Payment và Notification Services. |
 | **Mapping DTO ↔ Entity** | **MapStruct** | Chuyển đổi dữ liệu chuẩn kiểu an toàn (Type-safe mapping), compile-time generation với chi phí CPU gần như bằng 0. |
@@ -149,7 +149,7 @@ graph TD
 
 Toàn bộ **13 Microservices** tự động đăng ký và được giám sát thời gian thực thông qua máy chủ danh bạ **Netflix Eureka Server** (`http://localhost:8761`). Dưới đây là bằng chứng hệ thống chạy ổn định với 100% instances active:
 
-![Spring Cloud Eureka Dashboard](docs/assets/eureka-dashboard.svg)
+![Spring Cloud Eureka Dashboard Screenshot](docs/assets/eureka-dashboard.png)
 
 ---
 

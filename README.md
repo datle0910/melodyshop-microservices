@@ -4,7 +4,7 @@
 
 # MelodyShop Microservices Monorepo 🎵
 
-[![Java 17](https://img.shields.io/badge/Java-17-orange.svg?style=flat-square&logo=openjdk)](https://www.oracle.com/java/)
+[![Java 21](https://img.shields.io/badge/Java-21-orange.svg?style=flat-square&logo=openjdk)](https://www.oracle.com/java/)
 [![Spring Boot 3.2](https://img.shields.io/badge/Spring_Boot-3.2.x-6DB33F.svg?style=flat-square&logo=springboot)](https://spring.io/projects/spring-boot)
 [![Spring Cloud 2023](https://img.shields.io/badge/Spring_Cloud-2023.0.x-blue.svg?style=flat-square&logo=spring)](https://spring.io/projects/spring-cloud)
 [![MariaDB 10.11](https://img.shields.io/badge/MariaDB-10.11-003545.svg?style=flat-square&logo=mariadb)](https://mariadb.org/)
@@ -25,7 +25,7 @@ Enterprise-grade E-Commerce Backend Microservices Architecture for **MelodyShop*
 | **Service Registry & Discovery** | **Netflix Eureka Server** (`:8761`) | Zero-hardcoding dynamic service registry, healthcheck monitoring, and instant client discovery for all 13 instances. |
 | **API Gateway & Central Security** | **Spring Cloud Gateway** (`:8080`) | Single entry-point API Gateway featuring Centralized JWT Authentication Filter, Dynamic Route Forwarding, CORS, and Rate Limiting. |
 | **Centralized Logging & Observability** | **ELK Stack** (`docker-compose.elk.yml`) | Logstash TCP/UDP log collection appender, Elasticsearch 8.13 index, and Kibana Analytics Dashboard (`:5601`) for real-time trace diagnosis. |
-| **Automated CI/CD Pipeline** | **GitHub Actions** (`ci.yml`) | Continuous Integration pipeline automating multi-module Maven builds, unit test executions, and GHCR Docker Image distribution. |
+| **Automated CI/CD Pipeline** | **GitHub Actions** (`ci.yml`) | Continuous Integration pipeline automating multi-module Java 21 Maven builds, unit test executions, and GHCR Docker Image distribution. |
 | **Database Schema Versioning** | **Flyway Migration** (22+ Scripts) | Version-controlled SQL migration scripts guaranteeing zero-downtime database evolution and automated seed data provision. |
 | **Inter-Service Communication** | **Spring Cloud OpenFeign** | Declarative type-safe REST Clients connecting Order, Cart, Inventory, Payment, and Notification services. |
 | **High-Performance DTO Mapping** | **MapStruct** | Compile-time bean mapping generator with zero CPU overhead, ensuring clean separation between Entities and API DTOs. |
@@ -147,9 +147,9 @@ graph TD
 
 ## 📊 Live Eureka Service Registry Showcase
 
-All **13 Microservices** automatically register and are monitored in real time via **Netflix Eureka Server** (`http://localhost:8761`). Below is the verified live registry dashboard showing 100% active availability:
+All **13 Microservices** automatically register and are monitored in real time via **Netflix Eureka Server** (`http://localhost:8761`). Below is the verified live registry screenshot showing 100% active availability:
 
-![Spring Cloud Eureka Dashboard](docs/assets/eureka-dashboard.svg)
+![Spring Cloud Eureka Dashboard Screenshot](docs/assets/eureka-dashboard.png)
 
 ---
 
@@ -159,7 +159,7 @@ The system is decomposed into 13 standalone microservices for maximal scalabilit
 
 | # | Service Name | Port | Database / Storage | Key Responsibilities & Engineering Features | Primary API Route |
 |---|---|:---:|---|---|---|
-| **1** | **`eureka-server`** | `8761` | In-Memory Registry | Netflix Eureka Service Discovery Server providing dynamic service lookup and health checks for all 12 backend services. | `/` |
+| **1** | **`eureka-server`** | `8761` | In-Memory Registry | Netflix Eureka Service Discovery Server providing dynamic service lookup and health checks for all 13 backend instances. | `/` |
 | **2** | **`api-gateway`** | `8080` | None | Spring Cloud API Gateway serving as the single entry point with Centralized JWT Auth Filter, Dynamic Route Resolution, and Rate Limiting. | `/api/**` |
 | **3** | **`auth-service`** | `8081` | MariaDB (`auth_db`) | User identity management, User Registration, OAuth2/JWT issuance & validation (Access/Refresh Tokens), and RBAC security. | `/api/auth/**` |
 | **4** | **`user-service`** | `8084` | MariaDB (`user_db`) | Detailed user profile management, shipping address book, user preferences, and administrative user operations. | `/api/users/**` |

@@ -145,11 +145,11 @@ graph TD
 
 ---
 
-## 📊 Trạng Thái Eureka Service Discovery Dashboard
+## 📊 Trạng Thái Thực Tế Trên Eureka Service Discovery Dashboard
 
-Toàn bộ **13 Microservices** tự động đăng ký và được giám sát thời gian thực thông qua máy chủ danh bạ **Netflix Eureka Server** (`http://localhost:8761`). Dưới đây là bằng chứng hệ thống chạy ổn định với 100% instances active:
+Các microservices tự động phát hiện và đăng ký với máy chủ **Netflix Eureka Server** (`http://localhost:8761`). Dưới đây là ảnh chụp màn hình thực tế (Authentic Live Screenshot) từ giao diện Eureka Server đang chạy thời gian thực trên môi trường local:
 
-![Spring Cloud Eureka Dashboard Screenshot](docs/assets/eureka-dashboard.png)
+![Spring Cloud Eureka Dashboard Live Screenshot](docs/assets/eureka-dashboard.png)
 
 ---
 

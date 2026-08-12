@@ -147,9 +147,9 @@ graph TD
 
 ## 📊 Live Eureka Service Registry Showcase
 
-All **13 Microservices** automatically register and are monitored in real time via **Netflix Eureka Server** (`http://localhost:8761`). Below is the verified live registry screenshot showing 100% active availability:
+The microservices dynamically register with the **Netflix Eureka Server** (`http://localhost:8761`) upon startup. Below is an authentic live screenshot captured directly from the running Eureka Registry Server in local development:
 
-![Spring Cloud Eureka Dashboard Screenshot](docs/assets/eureka-dashboard.png)
+![Spring Cloud Eureka Dashboard Live Screenshot](docs/assets/eureka-dashboard.png)
 
 ---
 

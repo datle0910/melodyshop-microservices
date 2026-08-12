@@ -147,7 +147,7 @@ graph TD
 
 ## 📊 Trạng Thái Thực Tế Trên Eureka Service Discovery Dashboard
 
-Các microservices tự động phát hiện và đăng ký với máy chủ **Netflix Eureka Server** (`http://localhost:8761`). Dưới đây là ảnh chụp màn hình thực tế (Authentic Live Screenshot) từ giao diện Eureka Server đang chạy thời gian thực trên môi trường local:
+Các microservices tự động phát hiện và đăng ký với máy chủ **Netflix Eureka Server** (`http://localhost:8761`). Dưới đây là ảnh chụp màn hình thực tế (Authentic Live Screenshot) từ giao diện Eureka Server đang chạy thời gian thực trên môi trường local (hiển thị các microservices như `API-GATEWAY`, `AI-SERVICE`, `NOTIFICATION-SERVICE`, `MEDIA-SERVICE`, `CUSTOMER-ENGAGEMENT-SERVICE` đã kết nối và báo trạng thái `UP`):
 
 ![Spring Cloud Eureka Dashboard Live Screenshot](docs/assets/eureka-dashboard.png)
 

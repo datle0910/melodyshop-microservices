@@ -147,7 +147,7 @@ graph TD
 
 ## 📊 Live Eureka Service Registry Showcase
 
-The microservices dynamically register with the **Netflix Eureka Server** (`http://localhost:8761`) upon startup. Below is an authentic live screenshot captured directly from the running Eureka Registry Server in local development:
+The microservices dynamically register with the **Netflix Eureka Server** (`http://localhost:8761`) upon startup. Below is an authentic live screenshot captured directly from the running Eureka Registry Server in local development environment (showing active microservices including `API-GATEWAY`, `AI-SERVICE`, `NOTIFICATION-SERVICE`, `MEDIA-SERVICE`, `CUSTOMER-ENGAGEMENT-SERVICE` registered UP):
 
 ![Spring Cloud Eureka Dashboard Live Screenshot](docs/assets/eureka-dashboard.png)
 
